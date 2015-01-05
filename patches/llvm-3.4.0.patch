@@ -1,0 +1,129 @@
+diff -rupN orig/llvm-3.4//tools/clang/include/clang/Driver/Driver.h src/llvm-3.4//tools/clang/include/clang/Driver/Driver.h
+--- orig/llvm-3.4//tools/clang/include/clang/Driver/Driver.h	2013-11-01 19:16:25 +0100
++++ src/llvm-3.4//tools/clang/include/clang/Driver/Driver.h	2014-04-02 17:25:59 +0200
+@@ -97,6 +97,9 @@ public:
+   /// Dynamic loader prefix, if present
+   std::string DyldPrefix;
+ 
++  /// Default GCC install path
++  std::string DefaultGCCInstallPath;
++
+   /// If the standard library is used
+   bool UseStdLib;
+ 
+@@ -214,6 +217,11 @@ public:
+   const std::string &getTitle() { return DriverTitle; }
+   void setTitle(std::string Value) { DriverTitle = Value; }
+ 
++  /// \brief Get the default path of GCC install prefix
++  const char *getDefaultGCCInstallPath() const {
++    return DefaultGCCInstallPath.c_str();
++  }
++
+   /// \brief Get the path to the main clang executable.
+   const char *getClangProgramPath() const {
+     return ClangExecutable.c_str();
+diff -rupN orig/llvm-3.4//tools/clang/lib/Driver/Driver.cpp src/llvm-3.4//tools/clang/lib/Driver/Driver.cpp
+--- orig/llvm-3.4//tools/clang/lib/Driver/Driver.cpp	2013-11-01 19:16:25 +0100
++++ src/llvm-3.4//tools/clang/lib/Driver/Driver.cpp	2014-04-02 17:29:00 +0200
+@@ -40,17 +40,27 @@
+ // FIXME: It would prevent us from including llvm-config.h
+ // if config.h were included before system_error.h.
+ #include "clang/Config/config.h"
++#include "llvm/Config/config.h" // for LLVM_PREFIX
+ 
+ using namespace clang::driver;
+ using namespace clang;
+ using namespace llvm::opt;
+ 
++static bool isPrefixFolderOf(StringRef prefix, StringRef path) {
++  bool IsEndWithBackslash = ((path.size() >= prefix.size()) &&
++                              path[prefix.size()] == '/') ||
++                            prefix[prefix.size()-1] == '/';
++  bool IsPrefix = path.startswith(prefix);
++  return (IsEndWithBackslash && IsPrefix) || prefix.equals(path);
++}
++
+ Driver::Driver(StringRef ClangExecutable,
+                StringRef DefaultTargetTriple,
+                StringRef DefaultImageName,
+                DiagnosticsEngine &Diags)
+   : Opts(createDriverOptTable()), Diags(Diags), Mode(GCCMode),
+     ClangExecutable(ClangExecutable), SysRoot(DEFAULT_SYSROOT),
++    DefaultGCCInstallPath(GCC_INSTALL_PREFIX),
+     UseStdLib(true), DefaultTargetTriple(DefaultTargetTriple),
+     DefaultImageName(DefaultImageName),
+     DriverTitle("clang LLVM compiler"),
+@@ -61,9 +71,38 @@ Driver::Driver(StringRef ClangExecutable
+     CCGenDiagnostics(false), CCCGenericGCCName(""), CheckInputsExist(true),
+     CCCUsePCH(true), SuppressMissingInputWarning(false) {
+ 
++  {
++  }
+   Name = llvm::sys::path::stem(ClangExecutable);
+   Dir  = llvm::sys::path::parent_path(ClangExecutable);
+ 
++  StringRef DefaultSysroot = DEFAULT_SYSROOT;
++  StringRef DefaultGCCInstallPathRef = GCC_INSTALL_PREFIX;
++  if (!DefaultSysroot.empty() || !DefaultGCCInstallPathRef.empty()) {
++    // Try to relocate the sysroot/gcc install path when prefix of
++    // ClangExecutable not equal to LLVM_PREFIX.
++    StringRef LLVMPrefix = LLVM_PREFIX;
++    if (!isPrefixFolderOf(LLVMPrefix, ClangExecutable)) {
++      // We only recognize the case for default sysroot/gcc install path is
++      // sub-folder of install prefix.
++      StringRef UpperFolder = "/../";
++      Twine RelocatedBase = Dir + UpperFolder;
++      if (isPrefixFolderOf(LLVMPrefix, SysRoot)) {
++        // Need relocate sysroot !
++        StringRef RelativePath = DefaultSysroot.data() + LLVMPrefix.size();
++        Twine RelocatedPath = RelocatedBase + RelativePath;
++        SysRoot = RelocatedPath.str();
++      }
++      if (isPrefixFolderOf(LLVMPrefix, DefaultGCCInstallPath)) {
++        // Need relocate default gcc install path !
++        StringRef RelativePath = DefaultGCCInstallPathRef.data() +
++                                 LLVMPrefix.size();
++        Twine RelocatedPath = RelocatedBase + RelativePath;
++        DefaultGCCInstallPath = RelocatedPath.str();
++      }
++    }
++  }
++
+   // Compute the path to the resource directory.
+   StringRef ClangResourceDir(CLANG_RESOURCE_DIR);
+   SmallString<128> P(Dir);
+diff -rupN orig/llvm-3.4//tools/clang/lib/Driver/ToolChains.cpp src/llvm-3.4//tools/clang/lib/Driver/ToolChains.cpp
+--- orig/llvm-3.4//tools/clang/lib/Driver/ToolChains.cpp	2013-12-02 11:00:07 +0100
++++ src/llvm-3.4//tools/clang/lib/Driver/ToolChains.cpp	2014-04-02 17:26:17 +0200
+@@ -34,6 +34,7 @@
+ // FIXME: This needs to be listed last until we fix the broken include guards
+ // in these files and the LLVM config.h files.
+ #include "clang/Config/config.h" // for GCC_INSTALL_PREFIX
++#include "llvm/Config/config.h" // for LLVM_PREFIX
+ 
+ #include <cstdlib> // ::getenv
+ 
+@@ -1007,11 +1008,11 @@ bool Generic_GCC::GCCVersion::isOlderTha
+   return false;
+ }
+ 
+-static StringRef getGCCToolchainDir(const ArgList &Args) {
++static StringRef getGCCToolchainDir(const ArgList &Args, const Driver &D) {
+   const Arg *A = Args.getLastArg(options::OPT_gcc_toolchain);
+   if (A)
+     return A->getValue();
+-  return GCC_INSTALL_PREFIX;
++  return D.getDefaultGCCInstallPath();
+ }
+ 
+ /// \brief Construct a GCCInstallationDetector from the driver.
+@@ -1043,7 +1044,7 @@ Generic_GCC::GCCInstallationDetector::GC
+   SmallVector<std::string, 8> Prefixes(D.PrefixDirs.begin(),
+                                        D.PrefixDirs.end());
+ 
+-  StringRef GCCToolchainDir = getGCCToolchainDir(Args);
++  StringRef GCCToolchainDir = getGCCToolchainDir(Args, D);
+   if (GCCToolchainDir != "") {
+     if (GCCToolchainDir.back() == '/')
+       GCCToolchainDir = GCCToolchainDir.drop_back(); // remove the /

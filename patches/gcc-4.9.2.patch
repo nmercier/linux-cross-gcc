@@ -1,0 +1,50 @@
+diff -rupN orig/gcc-4.8.2//gcc/cppdefault.c src/gcc-4.8.2//gcc/cppdefault.c
+--- orig/gcc-4.8.2//gcc/cppdefault.c	2013-01-10 21:38:27 +0100
++++ src/gcc-4.8.2//gcc/cppdefault.c	2014-03-31 17:15:26 +0200
+@@ -27,6 +27,9 @@
+ #ifndef NATIVE_SYSTEM_HEADER_COMPONENT
+ #define NATIVE_SYSTEM_HEADER_COMPONENT 0
+ #endif
++#if defined(__MINGW32__) && defined(TARGET_SYSTEM_ROOT)
++#define NATIVE_SYSTEM_HEADER_DIR "/usr/include"
++#endif
+ 
+ #if defined (CROSS_DIRECTORY_STRUCTURE) && !defined (TARGET_SYSTEM_ROOT)
+ # undef LOCAL_INCLUDE_DIR
+diff -rupN orig/gcc-4.8.2//gcc/tsystem.h src/gcc-4.8.2//gcc/tsystem.h
+--- orig/gcc-4.8.2//gcc/tsystem.h	2013-01-10 21:38:27 +0100
++++ src/gcc-4.8.2//gcc/tsystem.h	2014-04-01 09:51:21 +0200
+@@ -44,6 +44,7 @@ see the files COPYING3 and COPYING.RUNTI
+ #include <stddef.h>
+ #include <float.h>
+ 
++#define inhibit_libc 1
+ #ifdef inhibit_libc
+ 
+ #ifndef malloc
+diff -rupN orig/gcc-4.8.2//libgcc/config/t-slibgcc src/gcc-4.8.2//libgcc/config/t-slibgcc
+--- orig/gcc-4.8.2//libgcc/config/t-slibgcc	2013-02-04 20:06:20 +0100
++++ src/gcc-4.8.2//libgcc/config/t-slibgcc	2014-04-01 10:07:40 +0200
+@@ -27,8 +27,8 @@ SHLIB_OBJS = @shlib_objs@
+ SHLIB_DIR = @multilib_dir@
+ SHLIB_SLIBDIR_QUAL = @shlib_slibdir_qual@
+ SHLIB_LC = -lc
+-SHLIB_MAKE_SOLINK = $(LN_S) $(SHLIB_SONAME) $(SHLIB_DIR)/$(SHLIB_SOLINK)
+-SHLIB_INSTALL_SOLINK = $(LN_S) $(SHLIB_SONAME) \
++SHLIB_MAKE_SOLINK = $(LN_S) $(SHLIB_DIR)/$(SHLIB_SONAME) $(SHLIB_DIR)/$(SHLIB_SOLINK)
++SHLIB_INSTALL_SOLINK = $(LN_S) $(SHLIB_DIR)/$(SHLIB_SONAME) \
+ 	$(DESTDIR)$(slibdir)$(SHLIB_SLIBDIR_QUAL)/$(SHLIB_SOLINK)
+ 
+ SHLIB_LINK = $(CC) $(LIBGCC2_CFLAGS) -shared -nodefaultlibs \
+diff -rupN orig/gcc-4.8.2//libstdc++-v3/src/Makefile.in src/gcc-4.8.2//libstdc++-v3/src/Makefile.in
+--- orig/gcc-4.8.2//libstdc++-v3/src/Makefile.in	2013-05-24 20:10:37 +0200
++++ src/gcc-4.8.2//libstdc++-v3/src/Makefile.in	2014-04-04 14:08:50 +0200
+@@ -871,7 +871,7 @@ compatibility-chrono.o: compatibility-ch
+ @ENABLE_SYMVERS_TRUE@	  fi; \
+ @ENABLE_SYMVERS_TRUE@	fi
+ @ENABLE_SYMVERS_TRUE@	$(EGREP) -v '^[ 	]*#(#| |$$)' $@.tmp | \
+-@ENABLE_SYMVERS_TRUE@	  $(CC) -E -P -include $(CONFIG_HEADER) - > $@ || (rm -f $@ ; exit 1)
++@ENABLE_SYMVERS_TRUE@	  $(CC) -E -P -include ./$(CONFIG_HEADER) - > $@ || (rm -f $@ ; exit 1)
+ @ENABLE_SYMVERS_TRUE@	rm -f $@.tmp
+ @ENABLE_SYMVERS_SUN_TRUE@@ENABLE_SYMVERS_TRUE@libstdc++-symbols.ver-sun : libstdc++-symbols.ver \
+ @ENABLE_SYMVERS_SUN_TRUE@@ENABLE_SYMVERS_TRUE@		$(toplevel_srcdir)/contrib/make_sunver.pl \

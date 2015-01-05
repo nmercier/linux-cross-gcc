@@ -1,0 +1,18 @@
+diff -ru binutils-2.24/ld/ldmain.c binutils-2.24.new/ld/ldmain.c
+--- binutils-2.24/ld/ldmain.c	2013-11-08 10:13:48 +0000
++++ binutils-2.24.new/ld/ldmain.c	2014-11-20 15:12:11 +0000
+@@ -233,7 +233,14 @@
+ 	ld_canon_sysroot = lrealpath (ld_sysroot);
+     }
+   if (ld_canon_sysroot)
++  {
+     ld_canon_sysroot_len = strlen (ld_canon_sysroot);
++    if (IS_DIR_SEPARATOR(ld_canon_sysroot[ld_canon_sysroot_len-1]))
++    {
++      ld_canon_sysroot[ld_canon_sysroot_len-1] = 0;
++      ld_canon_sysroot_len--;
++    }
++  }
+   else
+     ld_canon_sysroot_len = -1;
+ 
