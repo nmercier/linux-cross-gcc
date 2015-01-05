@@ -1,0 +1,26 @@
+Quick start:
+
+install msys and mingw, with at least the following extra packages:
+- mingw32-make, tar, bzip2, xz, flex, bison, patch, wget, gawk
+- install Python 2.7 32 bits (for clang and GDB python support)
+- install Python 3.4 (for apt-get.py, for LZMA support in tar module)
+- make sure Python 2.7 is in the path when building
+- make sure to use Python 3.4 for apt-get.py\
+
+
+How to use:
+Install a sysroot:
+
+pushd x86_64-pc-linux-gnu/sysroot
+[edit etc/apt/conf to use your favourite distribution and version]
+python3 apt-get.py update
+python3 apt-get.py install libc6-dev libc6-dev:i386 linux-libc-dev linux-libc-dev:i386 [extra dev packages]
+popd
+
+Download and build GCC/clang:
+. pkg/download.sh
+. src/unpack.sh
+. src/build.sh
+
+The compilers are built "relocatable" and placed in x86_64-pc-linux-gnu, the whole directory can be
+moved to a more convenient location.
