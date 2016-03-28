@@ -11,16 +11,14 @@ install msys and mingw, with at least the following extra packages:
 How to use:
 Install a sysroot:
 
-pushd x86_64-pc-linux-gnu/sysroot
+pushd pc-linux-gnu/sysroot
 [edit etc/apt/conf to use your favourite distribution and version]
 python3 apt-get.py update
 python3 apt-get.py install libc6-dev libc6-dev:i386 linux-libc-dev linux-libc-dev:i386 [extra dev packages]
 popd
 
 Download and build GCC/clang:
-. pkg/download.sh
-. src/unpack.sh
-. src/build.sh
+. python3 make.py [list of packages]
 
-The compilers are built "relocatable" and placed in x86_64-pc-linux-gnu, the whole directory can be
+The compilers are built "relocatable" and placed in pc-linux-gnu, the whole directory can be
 moved to a more convenient location.

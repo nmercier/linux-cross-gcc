@@ -1,4 +1,0 @@
-ARCHITECTURES=('amd64', 'i386')
-MIRROR='http://ubuntu.mirror.lrz.de/ubuntu/'
-DIST='trusty'
-REPOSITORIES=('main', 'multiverse', 'universe')

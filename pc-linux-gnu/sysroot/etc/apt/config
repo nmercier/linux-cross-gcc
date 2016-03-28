@@ -1,0 +1,13 @@
+ARCHITECTURES=(
+	'amd64',
+	'i386',
+	'powerpc',
+	'armel',
+	'armhf',
+	'arm64',
+	'mips',
+	'mipsel',
+)
+MIRROR='http://ftp.se.debian.org/debian/'
+DISTS=['stable']
+REPOSITORIES=('main', 'contrib', 'non-free')

@@ -12,7 +12,7 @@ try:
     import urllib2
 except ImportError:
     from urllib import request as urllib2
-import bz2
+import bz2, lzma
 try:
     import cPickle as pickle
 except ImportError:
@@ -358,41 +358,46 @@ def update():
     ensure_directories_exist()
     packages = {}
     mirror = config['MIRROR']
-    dist = config['DIST']
     package_count = 0
     package = None
     for architecture in config['ARCHITECTURES']:
         packages[architecture] = {}
         for repository in config['REPOSITORIES']:
-            url = '%s/dists/%s/%s/binary-%s/Packages.bz2'%(mirror, dist, repository, architecture)
-            package_compressed = download(url)
-            package_data = bz2.decompress(package_compressed)
-            try:
-                package_data = package_data.decode('latin1')
-            except Exception:
-                pass
-            for line in package_data.split('\n'):
-                if line:
-                    split = line.find(':')
-                    key = line[:split]
-                    value = line[split + 1:].strip()
-                if key == 'Package':
-                    package = Package(value, architecture)
-                    package_count += 1
-                    try:
-                        packages[architecture][value].append(package)
-                    except KeyError:
-                        packages[architecture][value] = [package]
-                else:
-                    setattr(package, key, value)
-                    if key == 'Provides':
-                        provides = value.split(',')
-                        for p in provides:
-                            p = p.strip()
-                            try:
-                                packages[architecture][p].append(package)
-                            except:
-                                packages[architecture][p] = [package]
+            for dist in config['DISTS']:
+                url = '%s/dists/%s/%s/binary-%s/Packages.bz2'%(mirror, dist, repository, architecture)
+                try:
+                    package_compressed = download(url)
+                    package_data = bz2.decompress(package_compressed)
+                except Exception:
+                    url = '%s/dists/%s/%s/binary-%s/Packages.xz'%(mirror, dist, repository, architecture)
+                    package_compressed = download(url)
+                    package_data = lzma.decompress(package_compressed)
+                try:
+                    package_data = package_data.decode('latin1')
+                except Exception:
+                    pass
+                for line in package_data.split('\n'):
+                    if line:
+                        split = line.find(':')
+                        key = line[:split]
+                        value = line[split + 1:].strip()
+                    if key == 'Package':
+                        package = Package(value, architecture)
+                        package_count += 1
+                        try:
+                            packages[architecture][value].append(package)
+                        except KeyError:
+                            packages[architecture][value] = [package]
+                    else:
+                        setattr(package, key, value)
+                        if key == 'Provides':
+                            provides = value.split(',')
+                            for p in provides:
+                                p = p.strip()
+                                try:
+                                    packages[architecture][p].append(package)
+                                except:
+                                    packages[architecture][p] = [package]
     with open(available_package_list_file, 'wb') as package_file:
         pickle.dump(packages, package_file)
     print('Information on %d packages' % package_count)
@@ -505,9 +510,9 @@ def install(package_list):
         install_size = -install_size
     if install_size > 1024*5:
         install_size /= 1024
-        unit = 'MB'    
+        unit = 'MB'
     print('After this operation, %0.2f %s of additional disk space will be %s.' % (install_size, unit, disk))
-    print('Do you want to continue? [Y/n]',) 
+    print('Do you want to continue? [Y/n]',)
 
     do_download(download_packages)
     do_uninstall([p for __,p in updated_packages])

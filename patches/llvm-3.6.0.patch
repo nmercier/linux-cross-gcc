@@ -1,0 +1,247 @@
+diff -Naur llvm-3.6.2.orig/lib/Analysis/ConstantFolding.cpp llvm-3.6.2.src/lib/Analysis/ConstantFolding.cpp
+--- llvm-3.6.2.orig/lib/Analysis/ConstantFolding.cpp	2014-11-19 08:49:26.000000000 +0100
++++ llvm-3.6.2.src/lib/Analysis/ConstantFolding.cpp	2016-03-27 13:49:48.686425100 +0200
+@@ -38,6 +38,7 @@
+ #include <cmath>
+ 
+ #ifdef HAVE_FENV_H
++#define _GLIBCXX_HAVE_FENV_H 1
+ #include <fenv.h>
+ #endif
+ 
+diff -Naur llvm-3.6.2.orig/tools/clang/include/clang/Driver/Driver.h llvm-3.6.2.src/tools/clang/include/clang/Driver/Driver.h
+--- llvm-3.6.2.orig/tools/clang/include/clang/Driver/Driver.h	2015-01-09 18:38:53.000000000 +0100
++++ llvm-3.6.2.src/tools/clang/include/clang/Driver/Driver.h	2016-03-27 13:49:48.691428100 +0200
+@@ -98,6 +98,9 @@
+   /// Dynamic loader prefix, if present
+   std::string DyldPrefix;
+ 
++  /// Default GCC install path
++  std::string DefaultGCCInstallPath;
++
+   /// If the standard library is used
+   bool UseStdLib;
+ 
+@@ -217,6 +220,11 @@
+   const std::string &getTitle() { return DriverTitle; }
+   void setTitle(std::string Value) { DriverTitle = Value; }
+ 
++  /// \brief Get the default path of GCC install prefix
++  const char *getDefaultGCCInstallPath() const {
++    return DefaultGCCInstallPath.c_str();
++  }
++
+   /// \brief Get the path to the main clang executable.
+   const char *getClangProgramPath() const {
+     return ClangExecutable.c_str();
+diff -Naur llvm-3.6.2.orig/tools/clang/lib/Driver/Driver.cpp llvm-3.6.2.src/tools/clang/lib/Driver/Driver.cpp
+--- llvm-3.6.2.orig/tools/clang/lib/Driver/Driver.cpp	2015-01-12 03:33:09.000000000 +0100
++++ llvm-3.6.2.src/tools/clang/lib/Driver/Driver.cpp	2016-03-27 13:49:48.697425700 +0200
+@@ -24,6 +24,7 @@
+ #include "llvm/ADT/StringExtras.h"
+ #include "llvm/ADT/StringSet.h"
+ #include "llvm/ADT/StringSwitch.h"
++#include "llvm/Config/config.h" // for LLVM_PREFIX
+ #include "llvm/Option/Arg.h"
+ #include "llvm/Option/ArgList.h"
+ #include "llvm/Option/OptSpecifier.h"
+@@ -44,11 +45,20 @@
+ using namespace clang;
+ using namespace llvm::opt;
+ 
++static bool isPrefixFolderOf(StringRef prefix, StringRef path) {
++  bool IsEndWithBackslash = ((path.size() >= prefix.size()) &&
++                              path[prefix.size()] == '/') ||
++                            prefix[prefix.size()-1] == '/';
++  bool IsPrefix = path.startswith(prefix);
++  return (IsEndWithBackslash && IsPrefix) || prefix.equals(path);
++}
++
+ Driver::Driver(StringRef ClangExecutable,
+                StringRef DefaultTargetTriple,
+                DiagnosticsEngine &Diags)
+   : Opts(createDriverOptTable()), Diags(Diags), Mode(GCCMode),
+     ClangExecutable(ClangExecutable), SysRoot(DEFAULT_SYSROOT),
++    DefaultGCCInstallPath(GCC_INSTALL_PREFIX),
+     UseStdLib(true), DefaultTargetTriple(DefaultTargetTriple),
+     DriverTitle("clang LLVM compiler"),
+     CCPrintOptionsFilename(nullptr), CCPrintHeadersFilename(nullptr),
+@@ -58,9 +68,38 @@
+     CCGenDiagnostics(false), CCCGenericGCCName(""), CheckInputsExist(true),
+     CCCUsePCH(true), SuppressMissingInputWarning(false) {
+ 
++  {
++  }
+   Name = llvm::sys::path::stem(ClangExecutable);
+   Dir  = llvm::sys::path::parent_path(ClangExecutable);
+ 
++  StringRef DefaultSysroot = DEFAULT_SYSROOT;
++  StringRef DefaultGCCInstallPathRef = GCC_INSTALL_PREFIX;
++  if (!DefaultSysroot.empty() || !DefaultGCCInstallPathRef.empty()) {
++    // Try to relocate the sysroot/gcc install path when prefix of
++    // ClangExecutable not equal to LLVM_PREFIX.
++    StringRef LLVMPrefix = LLVM_PREFIX;
++    if (!isPrefixFolderOf(LLVMPrefix, ClangExecutable)) {
++      // We only recognize the case for default sysroot/gcc install path is
++      // sub-folder of install prefix.
++      StringRef UpperFolder = "/../";
++      Twine RelocatedBase = Dir + UpperFolder;
++      if (isPrefixFolderOf(LLVMPrefix, SysRoot)) {
++        // Need relocate sysroot !
++        StringRef RelativePath = DefaultSysroot.data() + LLVMPrefix.size();
++        Twine RelocatedPath = RelocatedBase + RelativePath;
++        SysRoot = RelocatedPath.str();
++      }
++      if (isPrefixFolderOf(LLVMPrefix, DefaultGCCInstallPath)) {
++        // Need relocate default gcc install path !
++        StringRef RelativePath = DefaultGCCInstallPathRef.data() +
++                                 LLVMPrefix.size();
++        Twine RelocatedPath = RelocatedBase + RelativePath;
++        DefaultGCCInstallPath = RelocatedPath.str();
++      }
++    }
++  }
++
+   // Compute the path to the resource directory.
+   StringRef ClangResourceDir(CLANG_RESOURCE_DIR);
+   SmallString<128> P(Dir);
+diff -Naur llvm-3.6.2.orig/tools/clang/lib/Driver/ToolChain.cpp llvm-3.6.2.src/tools/clang/lib/Driver/ToolChain.cpp
+--- llvm-3.6.2.orig/tools/clang/lib/Driver/ToolChain.cpp	2014-12-21 08:00:00.000000000 +0100
++++ llvm-3.6.2.src/tools/clang/lib/Driver/ToolChain.cpp	2016-03-27 13:49:48.702425600 +0200
+@@ -17,6 +17,7 @@
+ #include "clang/Driver/ToolChain.h"
+ #include "llvm/ADT/SmallString.h"
+ #include "llvm/ADT/StringSwitch.h"
++#include "llvm/Config/config.h" // for LLVM_PREFIX
+ #include "llvm/Option/Arg.h"
+ #include "llvm/Option/ArgList.h"
+ #include "llvm/Option/Option.h"
+diff -Naur llvm-3.6.2.orig/tools/clang/lib/Driver/ToolChains.cpp llvm-3.6.2.src/tools/clang/lib/Driver/ToolChains.cpp
+--- llvm-3.6.2.orig/tools/clang/lib/Driver/ToolChains.cpp	2015-04-27 10:13:25.000000000 +0200
++++ llvm-3.6.2.src/tools/clang/lib/Driver/ToolChains.cpp	2016-03-27 23:15:05.555302200 +0200
+@@ -11,6 +11,7 @@
+ #include "clang/Basic/ObjCRuntime.h"
+ #include "clang/Basic/Version.h"
+ #include "clang/Config/config.h" // for GCC_INSTALL_PREFIX
++#include "llvm/Config/config.h" // for LLVM_PREFIX
+ #include "clang/Driver/Compilation.h"
+ #include "clang/Driver/Driver.h"
+ #include "clang/Driver/DriverDiagnostic.h"
+@@ -1169,11 +1170,11 @@
+   return false;
+ }
+ 
+-static llvm::StringRef getGCCToolchainDir(const ArgList &Args) {
++static StringRef getGCCToolchainDir(const ArgList &Args, const Driver &D) {
+   const Arg *A = Args.getLastArg(options::OPT_gcc_toolchain);
+   if (A)
+     return A->getValue();
+-  return GCC_INSTALL_PREFIX;
++  return D.getDefaultGCCInstallPath();
+ }
+ 
+ /// \brief Initialize a GCCInstallationDetector from the driver.
+@@ -1204,7 +1205,7 @@
+   SmallVector<std::string, 8> Prefixes(D.PrefixDirs.begin(),
+                                        D.PrefixDirs.end());
+ 
+-  StringRef GCCToolchainDir = getGCCToolchainDir(Args);
++  StringRef GCCToolchainDir = getGCCToolchainDir(Args, D);
+   if (GCCToolchainDir != "") {
+     if (GCCToolchainDir.back() == '/')
+       GCCToolchainDir = GCCToolchainDir.drop_back(); // remove the /
+@@ -2096,10 +2097,11 @@
+ /// Hexagon Toolchain
+ 
+ std::string Hexagon_TC::GetGnuDir(const std::string &InstalledDir,
+-                                  const ArgList &Args) {
++                                  const ArgList &Args,
++                                  const Driver& D) {
+ 
+   // Locate the rest of the toolchain ...
+-  std::string GccToolchain = getGCCToolchainDir(Args);
++  std::string GccToolchain = getGCCToolchainDir(Args, D);
+ 
+   if (!GccToolchain.empty())
+     return GccToolchain;
+@@ -2120,7 +2122,8 @@
+   const std::string &Ver,
+   const std::string &MarchString,
+   const std::string &InstalledDir,
+-  ToolChain::path_list *LibPaths)
++  ToolChain::path_list *LibPaths,
++  const Driver& D)
+ {
+   bool buildingLib = Args.hasArg(options::OPT_shared);
+ 
+@@ -2142,7 +2145,7 @@
+   const std::string MarchSuffix = "/" + MarchString;
+   const std::string G0Suffix = "/G0";
+   const std::string MarchG0Suffix = MarchSuffix + G0Suffix;
+-  const std::string RootDir = Hexagon_TC::GetGnuDir(InstalledDir, Args) + "/";
++  const std::string RootDir = Hexagon_TC::GetGnuDir(InstalledDir, Args, D) + "/";
+ 
+   // lib/gcc/hexagon/...
+   std::string LibGCCHexagonDir = RootDir + "lib/gcc/hexagon/";
+@@ -2170,7 +2173,7 @@
+                        const ArgList &Args)
+   : Linux(D, Triple, Args) {
+   const std::string InstalledDir(getDriver().getInstalledDir());
+-  const std::string GnuDir = Hexagon_TC::GetGnuDir(InstalledDir, Args);
++  const std::string GnuDir = Hexagon_TC::GetGnuDir(InstalledDir, Args, D);
+ 
+   // Note: Generic_GCC::Generic_GCC adds InstalledDir and getDriver().Dir to
+   // program paths
+@@ -2202,7 +2205,8 @@
+     GetGCCLibAndIncVersion(),
+     GetTargetCPU(Args),
+     InstalledDir,
+-    LibPaths);
++    LibPaths,
++    D);
+ }
+ 
+ Hexagon_TC::~Hexagon_TC() {
+@@ -2225,7 +2229,7 @@
+     return;
+ 
+   std::string Ver(GetGCCLibAndIncVersion());
+-  std::string GnuDir = Hexagon_TC::GetGnuDir(D.InstalledDir, DriverArgs);
++  std::string GnuDir = Hexagon_TC::GetGnuDir(D.InstalledDir, DriverArgs, D);
+   std::string HexagonDir(GnuDir + "/lib/gcc/hexagon/" + Ver);
+   addExternCSystemInclude(DriverArgs, CC1Args, HexagonDir + "/include");
+   addExternCSystemInclude(DriverArgs, CC1Args, HexagonDir + "/include-fixed");
+@@ -2242,7 +2246,7 @@
+   const Driver &D = getDriver();
+   std::string Ver(GetGCCLibAndIncVersion());
+   SmallString<128> IncludeDir(
+-      Hexagon_TC::GetGnuDir(D.InstalledDir, DriverArgs));
++      Hexagon_TC::GetGnuDir(D.InstalledDir, DriverArgs, D));
+ 
+   llvm::sys::path::append(IncludeDir, "hexagon/include/c++/");
+   llvm::sys::path::append(IncludeDir, Ver);
+diff -Naur llvm-3.6.2.orig/tools/clang/lib/Driver/ToolChains.h llvm-3.6.2.src/tools/clang/lib/Driver/ToolChains.h
+--- llvm-3.6.2.orig/tools/clang/lib/Driver/ToolChains.h	2015-01-14 08:55:36.000000000 +0100
++++ llvm-3.6.2.src/tools/clang/lib/Driver/ToolChains.h	2016-03-27 23:12:36.298914700 +0200
+@@ -683,7 +683,8 @@
+   StringRef GetGCCLibAndIncVersion() const { return GCCLibAndIncVersion.Text; }
+ 
+   static std::string GetGnuDir(const std::string &InstalledDir,
+-                               const llvm::opt::ArgList &Args);
++                               const llvm::opt::ArgList &Args,
++                               const Driver& D);
+ 
+   static StringRef GetTargetCPU(const llvm::opt::ArgList &Args);
+ };
+diff -Naur llvm-3.6.2.orig/tools/clang/lib/Driver/Tools.cpp llvm-3.6.2.src/tools/clang/lib/Driver/Tools.cpp
+--- llvm-3.6.2.orig/tools/clang/lib/Driver/Tools.cpp	2015-02-03 23:57:34.000000000 +0100
++++ llvm-3.6.2.src/tools/clang/lib/Driver/Tools.cpp	2016-03-27 23:14:40.371167800 +0200
+@@ -5258,7 +5258,7 @@
+   const std::string G0Suffix = "/G0";
+   const std::string MarchG0Suffix = MarchSuffix + G0Suffix;
+   const std::string RootDir =
+-      toolchains::Hexagon_TC::GetGnuDir(D.InstalledDir, Args) + "/";
++      toolchains::Hexagon_TC::GetGnuDir(D.InstalledDir, Args, D) + "/";
+   const std::string StartFilesDir = RootDir
+                                     + "hexagon/lib"
+                                     + (buildingLib
