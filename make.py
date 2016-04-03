@@ -11,46 +11,8 @@ except ImportError:
 import tarfile
 
 
-def on_rm_error(func, path, exc_info):
-    os.chmod(path, stat.S_IWRITE)
-    os.unlink(path)
+cols = 80
 
-
-got_tty = not os.environ.get('TERM', 'dumb') in ['dumb', 'emacs']
-if got_tty:
-	try:
-		got_tty = sys.stderr.isatty() and sys.stdout.isatty()
-	except AttributeError:
-		got_tty = False
-
-def get_term_cols():
-	return 80
-# If console packages are available, replace the dummy function with a real
-# implementation
-try:
-	import struct, fcntl, termios
-except ImportError:
-	pass
-else:
-	if got_tty:
-		def get_term_cols_real():
-			"""
-			Private use only.
-			"""
-
-			dummy_lines, cols = struct.unpack("HHHH", \
-			fcntl.ioctl(sys.stdout.fileno(),termios.TIOCGWINSZ , \
-			struct.pack("HHHH", 0, 0, 0, 0)))[:2]
-			return cols
-		# try the function once to see if it really works
-		try:
-			get_term_cols_real()
-		except Exception:
-			pass
-		else:
-			get_term_cols = get_term_cols_real
-
-cols = get_term_cols()
 
 platform_flags = {
     'darwin':   [],
@@ -64,9 +26,11 @@ else:
     gxx = 'g++'
     #env['CC'] = gcc
     #env['CXX'] = gxx
-env['CFLAGS']   = ' '.join(platform_flags.get(sys.platform, []))
-env['CXXFLAGS'] = ' '.join(platform_flags.get(sys.platform, []))
-env['LDFLAGS']  = ' '.join(platform_flags.get(sys.platform, []))
+env['CFLAGS']   = ' '.join(platform_flags.get(sys.platform, []) + [env.get('CFLAGS', '')])
+env['CXXFLAGS'] = ' '.join(platform_flags.get(sys.platform, []) + [env.get('CXXFLAGS', '')])
+env['LDFLAGS']  = ' '.join(platform_flags.get(sys.platform, []) + [env.get('LDFLAGS', '')])
+env['PATH'] = env['PATH'] + os.pathsep + os.path.abspath('pc-linux-gnu/bin')
+
 
 def get_gcc_host():
     cmd = [gcc, '-v']
@@ -88,7 +52,8 @@ packages = [
         ],
         [],
         True,
-        ['bash', '%(src_path)s/configure', '--build=%(host)s', '--prefix=%(install_path)s', '--enable-static', '--disable-shared'],
+        ['bash', '%(src_path)s/configure', '--build=%(host)s', '--prefix=%(install_path)s', '--enable-shared', '--disable-static'],
+        {},
         ['make', '-j8'],
         ['make', 'install-strip'],
         ['make', 'clean'],
@@ -100,8 +65,9 @@ packages = [
         ],
         [],
         True,
-        ['bash', '%(src_path)s/configure', '--build=%(host)s', '--prefix=%(install_path)s', '--enable-static', '--disable-shared',
+        ['bash', '%(src_path)s/configure', '--build=%(host)s', '--prefix=%(install_path)s', '--enable-shared', '--disable-static',
                  '--with-gmp=%(install_path)s'],
+        {},
         ['make', '-j8'],
         ['make', 'install-strip'],
         ['make', 'clean'],
@@ -113,8 +79,9 @@ packages = [
         ],
         [],
         True,
-        ['bash', '%(src_path)s/configure', '--build=%(host)s', '--prefix=%(install_path)s', '--enable-static', '--disable-shared',
+        ['bash', '%(src_path)s/configure', '--build=%(host)s', '--prefix=%(install_path)s', '--enable-shared', '--disable-static',
                  '--with-gmp=%(install_path)s', '--with-mpfr=%(install_path)s'],
+        {},
         ['make', '-j8'],
         ['make', 'install-strip'],
         ['make', 'clean'],
@@ -132,6 +99,7 @@ packages = [
                  '--enable-static', '--disable-shared', '--with-gold', '--with-sysroot=%(sysroot_path)s',
                  '--enable-multiarch', '--disable-nls',
                  '--with-gmp=%(install_path)s', '--with-mpfr=%(install_path)s', '--with-mpc=%(install_path)s'],
+        {},
         ['make', '-j8'],
         ['make', 'install-strip'],
         ['make', 'clean'],
@@ -151,6 +119,9 @@ packages = [
                  '--with-sysroot=%(sysroot_path)s', '--with-build-sysroot=%(sysroot_path)s',
                  '--with-gmp=%(install_path)s', '--with-mpfr=%(install_path)s', '--with-mpc=%(install_path)s',
                  '--program-prefix=%(target)s-', '--program-suffix=-4.9'],
+        {
+            'powerpc': ['--disable-multilib', '--disable-soft-float', ],
+        },
         ['make', '-j2'],
         ['make', 'install-strip'],
         ['make', 'clean'],
@@ -170,6 +141,9 @@ packages = [
                  '--with-sysroot=%(sysroot_path)s', '--with-build-sysroot=%(sysroot_path)s',
                  '--with-gmp=%(install_path)s', '--with-mpfr=%(install_path)s', '--with-mpc=%(install_path)s',
                  '--program-prefix=%(target)s-', '--program-suffix=-5.3'],
+        {
+            'powerpc': ['--disable-multilib', '--disable-soft-float', ],
+        },
         ['make', '-j2'],
         ['make', 'install-strip'],
         ['make', 'clean'],
@@ -184,12 +158,13 @@ packages = [
         [
             ('llvm-3.4.0.patch', 2)
         ],
-        False,
-        ['bash', '%(src_path)s/configure', '--build=%(host)s', '--target=%(target)s', '--prefix=%(install_path)s/lib/llvm-%(arch)s-3.4/',
-                 '--enable-static', '--disable-shared', '--enable-optimized=yes', '--enable-assertions=no',  '--enable-threads=yes',
+        True,
+        ['bash', '%(src_path)s/configure', '--build=%(host)s', '--target=%(target)s', '--prefix=%(install_path)s/lib/llvm-3.4/',
+                 '--enable-optimized=yes', '--enable-assertions=no',  '--enable-threads=yes',
                  '--enable-debug-symbols=no', '--enable-docs=no', '--program-prefix=', '--enable-targets=all',
                  '--with-sysroot=%(sysroot_path)s', '--with-default-sysroot=%(sysroot_path)s', '--enable-pthreads=no',
                  '--with-gcc-toolchain=%(install_path)s/', '--with-python=%(install_path)s/bin/python.exe'],
+        {},
         ['make', '-j8'],
         ['make', 'install'],
         ['make', 'clean'],
@@ -204,12 +179,13 @@ packages = [
         [
             ('llvm-3.5.0.patch', 1)
         ],
-        False,
-        ['bash', '%(src_path)s/configure', '--build=%(host)s', '--target=%(target)s', '--prefix=%(install_path)s/lib/llvm-%(arch)s-3.5/',
-                 '--enable-static', '--disable-shared', '--enable-optimized=yes', '--enable-assertions=no',  '--enable-threads=yes',
+        True,
+        ['bash', '%(src_path)s/configure', '--build=%(host)s', '--target=%(target)s', '--prefix=%(install_path)s/lib/llvm-3.5/',
+                 '--enable-optimized=yes', '--enable-assertions=no',  '--enable-threads=yes',
                  '--enable-debug-symbols=no', '--enable-docs=no', '--program-prefix=', '--enable-targets=all',
                  '--with-sysroot=%(sysroot_path)s', '--with-default-sysroot=%(sysroot_path)s', '--enable-pthreads=no',
                  '--with-gcc-toolchain=%(install_path)s/', '--with-python=%(install_path)s/bin/python.exe'],
+        {},
         ['make', '-j8'],
         ['make', 'install'],
         ['make', 'clean'],
@@ -224,12 +200,13 @@ packages = [
         [
             ('llvm-3.6.0.patch', 1)
         ],
-        False,
-        ['bash', '%(src_path)s/configure', '--build=%(host)s', '--target=%(target)s', '--prefix=%(install_path)s/lib/llvm-%(arch)s-3.6/',
-                 '--enable-static', '--disable-shared', '--enable-optimized=yes', '--enable-assertions=no',  '--enable-threads=yes',
+        True,
+        ['bash', '%(src_path)s/configure', '--build=%(host)s', '--target=%(target)s', '--prefix=%(install_path)s/lib/llvm-3.6/',
+                 '--enable-optimized=yes', '--enable-assertions=no',  '--enable-threads=yes',
                  '--enable-debug-symbols=no', '--enable-docs=no', '--program-prefix=', '--enable-targets=all',
                  '--with-sysroot=%(sysroot_path)s', '--with-default-sysroot=%(sysroot_path)s', '--enable-pthreads=no',
                  '--with-gcc-toolchain=%(install_path)s/', '--with-python=%(install_path)s/bin/python.exe'],
+        {},
         ['make', '-j8'],
         ['make', 'install'],
         ['make', 'clean'],
@@ -244,37 +221,47 @@ packages = [
         [
             ('llvm-3.7.0.patch', 1)
         ],
-        False,
-        ['bash', '%(src_path)s/configure', '--build=%(host)s', '--target=%(target)s', '--prefix=%(install_path)s/lib/llvm-%(arch)s-3.7/',
-                 '--enable-static', '--disable-shared', '--enable-optimized=yes', '--enable-assertions=no',  '--enable-threads=yes',
+        True,
+        ['bash', '%(src_path)s/configure', '--build=%(host)s', '--target=%(target)s', '--prefix=%(install_path)s/lib/llvm-3.7/',
+                 '--enable-optimized=yes', '--enable-assertions=no',  '--enable-threads=yes',
                  '--enable-debug-symbols=no', '--enable-docs=no', '--program-prefix=', '--enable-targets=all',
                  '--with-sysroot=%(sysroot_path)s', '--with-default-sysroot=%(sysroot_path)s', '--enable-pthreads=no',
                  '--with-gcc-toolchain=%(install_path)s/', '--with-python=%(install_path)s/bin/python.exe'],
+        {},
         ['make', '-j8'],
         ['make', 'install'],
         ['make', 'clean'],
     ),
-    (
-        'clang-3.8',
-        [
-            ('http://llvm.org/releases/3.8.0/llvm-3.8.0.src.tar.xz', '', None),
-            ('http://llvm.org/releases/3.8.0/cfe-3.8.0.src.tar.xz', 'llvm-3.8.0.src/tools', 'clang'),
-            ('http://llvm.org/releases/3.8.0/compiler-rt-3.8.0.src.tar.xz', 'llvm-3.8.0.src/projects', 'compiler-rt'),
-        ],
-        [
-            ('llvm-3.7.0.patch', 1)
-        ],
-        False,
-        ['bash', '%(src_path)s/configure', '--build=%(host)s', '--target=%(target)s', '--prefix=%(install_path)s/lib/llvm-%(arch)s-3.8/',
-                 '--enable-static', '--disable-shared', '--enable-optimized=yes', '--enable-assertions=no',  '--enable-threads=yes',
-                 '--enable-debug-symbols=no', '--enable-docs=no', '--program-prefix=', '--enable-targets=all',
-                 '--with-sysroot=%(sysroot_path)s', '--with-default-sysroot=%(sysroot_path)s', '--enable-pthreads=no',
-                 '--with-gcc-toolchain=%(install_path)s/', '--with-python=%(install_path)s/bin/python.exe'],
-        ['make', '-j8'],
-        ['make', 'install'],
-        ['make', 'clean'],
-    )
+    #(
+    #    'clang-3.8',
+    #    [
+    #        ('http://llvm.org/releases/3.8.0/llvm-3.8.0.src.tar.xz', '', None),
+    #        ('http://llvm.org/releases/3.8.0/cfe-3.8.0.src.tar.xz', 'llvm-3.8.0.src/tools', 'clang'),
+    #        ('http://llvm.org/releases/3.8.0/compiler-rt-3.8.0.src.tar.xz', 'llvm-3.8.0.src/projects', 'compiler-rt'),
+    #    ],
+    #    [
+    #        ('llvm-3.7.0.patch', 1)
+    #    ],
+    #    False,
+    #    ['bash', '%(src_path)s/configure', '--build=%(host)s', '--target=%(target)s', '--prefix=%(install_path)s/lib/llvm-%(arch)s-3.8/',
+    #             '--enable-optimized=yes', '--enable-assertions=no',  '--enable-threads=yes',
+    #             '--enable-debug-symbols=no', '--enable-docs=no', '--program-prefix=', '--enable-targets=all',
+    #             '--with-sysroot=%(sysroot_path)s', '--with-default-sysroot=%(sysroot_path)s', '--enable-pthreads=no',
+    #             '--with-gcc-toolchain=%(install_path)s/', '--with-python=%(install_path)s/bin/python.exe'],
+    #    {},
+    #    ['make', '-j8'],
+    #    ['make', 'install'],
+    #    ['make', 'clean'],
+    #),
 ]
+
+
+def up_to_date(sig, pkg, step, arch, directory):
+    return False
+
+
+def set_up_to_date(sig, pkg, step, arch):
+    pass
 
 
 def download_pkg(url):
@@ -347,45 +334,58 @@ def patch_pkg(src_root_dir, patch, patch_level):
             raise Exception('failed to patch: %s' % out)
 
 
-def run(command, bld_dir, step, config):
-    print('running %s step...' % step)
-    with open('bld/%s.log'%step, 'w') as logfile:
-        run_command = [i % config for i in command]
-        p = subprocess.Popen(run_command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=bld_dir, env=env)
-        line=p.stdout.readline()
-        while line:
-            if not isinstance(line, str):
-                line = line.decode(errors='ignore')
-            logfile.write(line)
-            line = line.rstrip()
-            length = len(line)
-            if length+2 > cols:
-                sys.stdout.write('\r=>%s...' % line[:cols-5])
-            else:
-                sys.stdout.write('\r=>%s%s' % (line, ' '*(cols-length-2)))
+def run(sig, pkg, arch, command, bld_dir, step, config):
+    sig = sig + [command]
+    if not up_to_date(sig, pkg, step, arch, bld_dir):
+        make_dir(bld_dir)
+        print('running %s step...' % step)
+        with open('bld/%s.log'%step, 'w') as logfile:
+            run_command = [i % config for i in command]
+            p = subprocess.Popen(run_command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=bld_dir, env=env)
             line=p.stdout.readline()
-        p.communicate()
-        sys.stdout.write('\r%s\r' % (' '*(cols+2)))
-        if p.returncode != 0:
-            raise Exception('failed to run %s step, check log file for more information' % step)
+            while line:
+                if not isinstance(line, str):
+                    line = line.decode(errors='ignore')
+                logfile.write(line)
+                line = line.rstrip()
+                length = len(line)
+                if length+2 > cols:
+                    sys.stdout.write('\r=>%s...' % line[:cols-5])
+                else:
+                    sys.stdout.write('\r=>%s%s' % (line, ' '*(cols-length-2)))
+                line=p.stdout.readline()
+            p.communicate()
+            sys.stdout.write('\r%s\r' % (' '*(cols+2)))
+            if p.returncode != 0:
+                raise Exception('failed to run %s step, check log file for more information' % step)
+            set_up_to_date(sig, pkg, step, arch)
+    return sig
 
 
-def build(bld_dir, configure_cmd, build_cmd, install_cmd, clean_cmd, archs):
-    if archs:
-        for arch in archs:
-            config['arch'] = arch
-            config['target'] = '%s-pc-linux-gnu'%arch
-            config['src_path'] = src_root_dir
-            run(configure_cmd, bld_root_dir, 'configure', config)
-            run(build_cmd, bld_root_dir, 'build', config)
-            run(install_cmd, bld_root_dir, 'install', config)
-            run(clean_cmd, bld_root_dir, 'clean', config)
-    else:
-        config['src_path'] = src_root_dir
-        run(configure_cmd, bld_root_dir, 'configure', config)
-        run(build_cmd, bld_root_dir, 'build', config)
-        run(install_cmd, bld_root_dir, 'install', config)
-        run(clean_cmd, bld_root_dir, 'clean', config)
+def build(pkg, src_dir, bld_dir, arch, configure_cmd, build_cmd, install_cmd, clean_cmd, sig):
+    if arch:
+        config['arch'] = arch
+        config['target'] = '%s-pc-linux-gnu'%arch
+    config['src_path'] = '../../%s' % src_dir
+    sig = run(sig, pkg, arch, configure_cmd, bld_dir, 'configure', config)
+    sig = run(sig, pkg, arch, build_cmd, bld_dir, 'build', config)
+    sig = run(sig, pkg, arch, install_cmd, bld_dir, 'install', config)
+    sig = run(sig, pkg, arch, clean_cmd, bld_dir, 'clean', config)
+
+
+def make_dir(d):
+    try:
+        os.mkdir(d)
+    except OSError:
+        pass
+
+
+def del_dir(d):
+    def on_rm_error(func, path, exc_info):
+        os.chmod(path, stat.S_IWRITE)
+        os.unlink(path)
+    if os.path.isdir(d):
+        shutil.rmtree(d, onerror=on_rm_error)
 
 
 if __name__ == '__main__':
@@ -394,41 +394,57 @@ if __name__ == '__main__':
         'sysroot_path': os.path.abspath('pc-linux-gnu/sysroot').replace('\\', '/'),
         'host':         get_gcc_host(),
     }
-    archs = [
+    all_archs = [
         'x86_64',
-        'powerpc',
+        #'powerpc',
         #'armel',
-        #'armhf',
-        #'aarch64',
+        'armhf',
+        'aarch64',
         #'mips',
         #'mipsel',
         ]
     do_build = sys.argv[1:]
+    make_dir('cache')
+    make_dir('src')
+    make_dir('bld')
 
-    for package_name, package_urls, patch_list, is_host_build, configure_cmd, build_cmd, install_cmd, clean_cmd in packages:
+    for package_name, package_urls, patch_list, is_host_build, configure_cmd, configure_extra_cmd, build_cmd, install_cmd, clean_cmd in packages:
         if do_build and package_name not in do_build:
             continue
-        root_dir = None
-        try:
-            try: os.mkdir('src')
-            except OSError: pass
-            try: os.mkdir('bld')
-            except OSError: pass
-            for url, dest, rename in package_urls:
-                data = download_pkg(url)
-                root_dir_pkg = extract_pkg(data, dest, rename)
-                root_dir = root_dir or root_dir_pkg
-            src_root_dir = '../../src/%s' % root_dir
-            bld_root_dir = os.path.abspath(os.path.join('bld', root_dir))
-            try: os.mkdir(bld_root_dir)
-            except OSError: pass
-            for patch, patch_level in patch_list:
-                patch_pkg('src/%s'%root_dir, patch, patch_level)
-            build(bld_root_dir, configure_cmd, build_cmd, install_cmd, clean_cmd, [] if is_host_build else archs)
-        except Exception as e:
-            raise e
-        else:
-            shutil.rmtree('bld', onerror=on_rm_error)
-            shutil.rmtree('src', onerror=on_rm_error)
+
+        src_root_dir = 'src/%s' % package_name
+        archs = [None] if is_host_build else all_archs
+
+        for arch in archs:
+            configure_arch_cmd = configure_extra_cmd.get(arch, [])
+            sig = [['wget'] + package_urls, ['patch'] + patch_list,
+                   configure_cmd + configure_arch_cmd,
+                   build_cmd,
+                   install_cmd]
+            if arch:
+                bld_root_dir = os.path.abspath('bld/%s-%s' % (package_name, arch))
+            else:
+                bld_root_dir = os.path.abspath('bld/%s' % (package_name))
+            done  = up_to_date(sig, package_name, 'install', arch, None)
+            if not done:
+                sig = [['wget'] + package_urls, ['patch'] + patch_list]
+                done = up_to_date(sig, package_name, 'unpack', None, src_root_dir)
+                if not done:
+                    del_dir(src_root_dir)
+                    del_dir(bld_root_dir)
+                    root_dir = None
+                    for url, dest, rename in package_urls:
+                        data = download_pkg(url)
+                        root_dir_pkg = extract_pkg(data, dest, rename)
+                        root_dir = root_dir or root_dir_pkg
+                    os.rename('src/%s' % root_dir, 'src/%s' % package_name)
+                    for patch, patch_level in patch_list:
+                        patch_pkg(src_root_dir, patch, patch_level)
+                    set_up_to_date(sig, package_name, 'unpack', None)
+                build(package_name, src_root_dir, bld_root_dir, arch,
+                      configure_cmd + configure_extra_cmd.get(arch, []), build_cmd, install_cmd, clean_cmd,
+                      sig)
+                del_dir(bld_root_dir, onerror=on_rm_error)
+        del_dir(src_root_dir, onerror=on_rm_error)
 
 
