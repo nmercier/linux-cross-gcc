@@ -9,7 +9,10 @@ try:
 except ImportError:
     from urllib import request as urllib2
 import tarfile
-
+try:
+    from hashlib import md5
+except ImportError:
+    from md5 import md5
 
 cols = 80
 
@@ -256,12 +259,26 @@ packages = [
 ]
 
 
+def hash(lst):
+    m = md5()
+    m.update(str(lst).encode())
+    return m.hexdigest()
+
+    
 def up_to_date(sig, pkg, step, arch, directory):
-    return False
+    if directory and not os.path.isdir(directory):
+        return False
+    try:
+        with open('cache/%s-%s-%s.status' % (pkg, arch and arch or 'any', step), 'r') as f:
+            md5 = f.read()
+            return md5 == hash(sig)
+    except Exception:
+        return False
 
 
 def set_up_to_date(sig, pkg, step, arch):
-    pass
+    with open('cache/%s-%s-%s.status' % (pkg, arch and arch or 'any', step), 'w') as f:
+        f.write(hash(sig))
 
 
 def download_pkg(url):
@@ -427,6 +444,7 @@ if __name__ == '__main__':
                 bld_root_dir = os.path.abspath('bld/%s' % (package_name))
             done  = up_to_date(sig, package_name, 'install', arch, None)
             if not done:
+                print('=> building %s%s' % (package_name, ' for %s'%arch if arch else ''))
                 sig = [['wget'] + package_urls, ['patch'] + patch_list]
                 done = up_to_date(sig, package_name, 'unpack', None, src_root_dir)
                 if not done:
@@ -444,7 +462,7 @@ if __name__ == '__main__':
                 build(package_name, src_root_dir, bld_root_dir, arch,
                       configure_cmd + configure_extra_cmd.get(arch, []), build_cmd, install_cmd, clean_cmd,
                       sig)
-                del_dir(bld_root_dir, onerror=on_rm_error)
-        del_dir(src_root_dir, onerror=on_rm_error)
+                del_dir(bld_root_dir)
+        del_dir(src_root_dir)
 
 
