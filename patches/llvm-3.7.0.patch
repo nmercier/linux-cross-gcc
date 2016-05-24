@@ -240,3 +240,25 @@ diff -Naur llvm-3.7.0.orig/tools/clang/lib/Driver/Tools.cpp llvm-3.7.0.src/tools
    const std::string StartFilesDir =
        RootDir + "hexagon/lib" + (useG0 ? MarchG0Suffix : MarchSuffix);
  
+diff -ur llvm-3.7.0.orig/lib/Support/Windows/Host.inc llvm-3.7.0.src/lib/Support/Windows/Host.inc
+--- llvm-3.7.0.orig/lib/Support/Windows/Host.inc	2014-03-29 02:08:53.000000000 +0100
++++ llvm-3.7.0.src/lib/Support/Windows/Host.inc	2016-05-24 11:34:53.806478400 +0200
+@@ -18,5 +18,5 @@
+ using namespace llvm;
+ 
+ std::string sys::getDefaultTargetTriple() {
+-  return Triple::normalize(LLVM_DEFAULT_TARGET_TRIPLE);
++  return LLVM_DEFAULT_TARGET_TRIPLE;
+ }
+diff -ur llvm-3.7.0.orig/CMakeLists.txt llvm-3.7.0.src/CMakeLists.txt
+--- llvm-3.7.0.orig/CMakeLists.txt	2015-11-16 19:18:25.000000000 +0100
++++ llvm-3.7.0.src/CMakeLists.txt	2016-05-24 14:43:16.772706300 +0200
+@@ -156,7 +156,7 @@
+
+ # They are used as destination of target generators.
+ set(LLVM_RUNTIME_OUTPUT_INTDIR ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/bin)
+-set(LLVM_LIBRARY_OUTPUT_INTDIR ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/lib${LLVM_LIBDIR_SUFFIX})
++set(LLVM_LIBRARY_OUTPUT_INTDIR ${CMAKE_CURRENT_BINARY_DIR}/Release/lib${LLVM_LIBDIR_SUFFIX})
+ if(WIN32 OR CYGWIN)
+   # DLL platform -- put DLLs into bin.
+   set(LLVM_SHLIB_OUTPUT_INTDIR ${LLVM_RUNTIME_OUTPUT_INTDIR})

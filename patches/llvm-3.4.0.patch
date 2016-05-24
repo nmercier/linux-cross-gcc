@@ -27,10 +27,11 @@ diff -rupN orig/llvm-3.4//tools/clang/lib/Driver/Driver.cpp src/llvm-3.4//tools/
 --- orig/llvm-3.4//tools/clang/lib/Driver/Driver.cpp	2013-11-01 19:16:25 +0100
 +++ src/llvm-3.4//tools/clang/lib/Driver/Driver.cpp	2014-04-02 17:29:00 +0200
 @@ -40,17 +40,27 @@
+ 
  // FIXME: It would prevent us from including llvm-config.h
  // if config.h were included before system_error.h.
- #include "clang/Config/config.h"
 +#include "llvm/Config/config.h" // for LLVM_PREFIX
+ #include "clang/Config/config.h"
  
  using namespace clang::driver;
  using namespace clang;
@@ -97,13 +98,13 @@ diff -rupN orig/llvm-3.4//tools/clang/lib/Driver/ToolChains.cpp src/llvm-3.4//to
 --- orig/llvm-3.4//tools/clang/lib/Driver/ToolChains.cpp	2013-12-02 11:00:07 +0100
 +++ src/llvm-3.4//tools/clang/lib/Driver/ToolChains.cpp	2014-04-02 17:26:17 +0200
 @@ -34,6 +34,7 @@
+ 
  // FIXME: This needs to be listed last until we fix the broken include guards
  // in these files and the LLVM config.h files.
- #include "clang/Config/config.h" // for GCC_INSTALL_PREFIX
 +#include "llvm/Config/config.h" // for LLVM_PREFIX
+ #include "clang/Config/config.h" // for GCC_INSTALL_PREFIX
  
  #include <cstdlib> // ::getenv
- 
 @@ -1007,11 +1008,11 @@ bool Generic_GCC::GCCVersion::isOlderTha
    return false;
  }

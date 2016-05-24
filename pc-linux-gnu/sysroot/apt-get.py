@@ -105,6 +105,15 @@ def to_version(version_string):
 
 
 class Package:
+    KEYS = [
+        'Depends',
+        'Pre-Depends',
+        'MD5sum',
+        'Size',
+        'Installed-Size',
+        'Version',
+        'Filename'
+    ]
     def __init__(self, package_name, package_arch):
         self.package_name = package_name
         self.package_arch = package_arch
@@ -340,7 +349,7 @@ def do_install(package_list, directory_links):
             else:
                 links.append((package, link_path, link_target))
         if len(old_links) == len(links):
-            print("Can't create links:\n " + '\n '.join('%s -> %s' % l for l in links))
+            print("Can't create links:\n " + '\n '.join('[%s] %s -> %s' % l for l in links))
             break
     for link_path, link_target in directory_links:
         try:
@@ -389,15 +398,16 @@ def update():
                         except KeyError:
                             packages[architecture][value] = [package]
                     else:
-                        setattr(package, key, value)
-                        if key == 'Provides':
-                            provides = value.split(',')
-                            for p in provides:
-                                p = p.strip()
-                                try:
-                                    packages[architecture][p].append(package)
-                                except:
-                                    packages[architecture][p] = [package]
+                        if key in Package.KEYS:
+                            setattr(package, key, value)
+                            if key == 'Provides':
+                                provides = value.split(',')
+                                for p in provides:
+                                    p = p.strip()
+                                    try:
+                                        packages[architecture][p].append(package)
+                                    except:
+                                        packages[architecture][p] = [package]
     with open(available_package_list_file, 'wb') as package_file:
         pickle.dump(packages, package_file)
     print('Information on %d packages' % package_count)

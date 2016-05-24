@@ -245,3 +245,13 @@ diff -Naur llvm-3.6.2.orig/tools/clang/lib/Driver/Tools.cpp llvm-3.6.2.src/tools
    const std::string StartFilesDir = RootDir
                                      + "hexagon/lib"
                                      + (buildingLib
+diff -Naur llvm-3.6.2.orig/lib/Support/Windows/Host.inc llvm-3.6.2.src/lib/Support/Windows/Host.inc
+--- llvm-3.6.2.orig/lib/Support/Windows/Host.inc	2014-03-29 02:08:53.000000000 +0100
++++ llvm-3.6.2.src/lib/Support/Windows/Host.inc	2016-05-24 11:34:53.806478400 +0200
+@@ -18,5 +18,5 @@
+ using namespace llvm;
+ 
+ std::string sys::getDefaultTargetTriple() {
+-  return Triple::normalize(LLVM_DEFAULT_TARGET_TRIPLE);
++  return LLVM_DEFAULT_TARGET_TRIPLE;
+ }

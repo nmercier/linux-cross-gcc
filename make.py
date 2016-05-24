@@ -19,14 +19,18 @@ cols = 80
 
 platform_flags = {
     'darwin':   [],
-    'win32':    [],
+    'win32':    ['-static-libgcc', '-static-libstdc++'],
 }
 env = os.environ.copy()
 if 'CC' in env:
     gcc = env['CC']
-else:
+    gxx = env['CXX']
+elif sys.platform == 'win32':
     gcc = 'gcc'
     gxx = 'g++'
+else:
+    gcc=''
+    gxx=''
     #env['CC'] = gcc
     #env['CXX'] = gxx
 env['CFLAGS']   = ' '.join(platform_flags.get(sys.platform, []) + [env.get('CFLAGS', '')])
@@ -83,7 +87,7 @@ packages = [
         [],
         True,
         [],
-        ['bash', '%(src_path)s/configure', '--build=%(host)s', '--prefix=%(install_path)s', '--enable-shared', '--disable-static'],
+        ['bash', '%(src_path)s/configure', '--build=%(host)s', '--prefix=%(install_path)s', '--disable-shared', '--enable-static'],
         {},
         ['make', '-j'],
         ['make', 'install-strip'],
@@ -97,7 +101,7 @@ packages = [
         [],
         True,
         [],
-        ['bash', '%(src_path)s/configure', '--build=%(host)s', '--prefix=%(install_path)s', '--enable-shared', '--disable-static',
+        ['bash', '%(src_path)s/configure', '--build=%(host)s', '--prefix=%(install_path)s', '--disable-shared', '--enable-static',
                  '--with-gmp=%(install_path)s'],
         {},
         ['make', '-j'],
@@ -112,7 +116,7 @@ packages = [
         [],
         True,
         [],
-        ['bash', '%(src_path)s/configure', '--build=%(host)s', '--prefix=%(install_path)s', '--enable-shared', '--disable-static',
+        ['bash', '%(src_path)s/configure', '--build=%(host)s', '--prefix=%(install_path)s', '--disable-shared', '--enable-static',
                  '--with-gmp=%(install_path)s', '--with-mpfr=%(install_path)s'],
         {},
         ['make', '-j'],
@@ -179,7 +183,7 @@ packages = [
                  '--with-gmp=%(install_path)s', '--with-mpfr=%(install_path)s', '--with-mpc=%(install_path)s',
                  '--program-prefix=%(target)s-', '--program-suffix=-5.3', '--enable-gold'],
         {
-            'powerpc': ['--disable-multilib', '--disable-soft-float', ],
+            'powerpc': ['--disable-multilib', '--disable-soft-float', '--with-float=hard'],
             'arm': ['--with-arch-directory=arm', '--with-arch=armv7-a', '--with-fpu=vfpv3-d16', '--with-float=hard', '--with-mode=thumb'],
         },
         ['make', '-j', '16'],
@@ -198,15 +202,14 @@ packages = [
         ],
         True,
         [],
-        ['bash', '%(src_path)s/configure', '--build=%(host)s', '--target=%(target)s', '--prefix=%(install_path)s/lib/llvm-3.4/',
-                 '--enable-optimized=yes', '--enable-assertions=no',  '--enable-threads=yes',
-                 '--enable-debug-symbols=no', '--enable-docs=no', '--program-prefix=', '--enable-targets=all',
-                 '--with-sysroot=%(sysroot_path)s', '--with-default-sysroot=%(sysroot_path)s', '--enable-pthreads=no',
-                 '--with-gcc-toolchain=%(install_path)s/', '--with-python=%(install_path)s/bin/python.exe'],
+        ['cmake', '%(src_path)s', '-G', '%(build_2012)s', '-DCMAKE_INSTALL_PREFIX=%(install_path)s/lib/llvm-3.4/',
+                  '-DCMAKE_BUILD_TYPE=Release', '-DBUILD_SHARED_LIBS=0', '-DDEFAULT_SYSROOT=%(sysroot_path)s',
+                  '-DLLVM_DEFAULT_TARGET_TRIPLE=x86_64-linux-gnu', '-DLLVM_TARGET_ARCH=x86_64',
+                  '-DGCC_INSTALL_PREFIX=%(install_path)s/', '-DPYTHON_EXECUTABLE=%(install_path)s/bin/%(python)s'],
         {},
-        ['make', '-j', '16'],
-        ['make', 'install'],
-        ['make', 'clean'],
+        ['cmake', '--build', '.'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else []),
+        ['cmake', '--build', '.', '--target', 'install'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else []),
+        ['cmake', '--build', '.', '--target', 'clean'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else []),
     ),
     (
         'clang-3.5',
@@ -220,15 +223,14 @@ packages = [
         ],
         True,
         [],
-        ['bash', '%(src_path)s/configure', '--build=%(host)s', '--target=%(target)s', '--prefix=%(install_path)s/lib/llvm-3.5/',
-                 '--enable-optimized=yes', '--enable-assertions=no',  '--enable-threads=yes',
-                 '--enable-debug-symbols=no', '--enable-docs=no', '--program-prefix=', '--enable-targets=all',
-                 '--with-sysroot=%(sysroot_path)s', '--with-default-sysroot=%(sysroot_path)s', '--enable-pthreads=no',
-                 '--with-gcc-toolchain=%(install_path)s/', '--with-python=%(install_path)s/bin/python.exe'],
+        ['cmake', '%(src_path)s', '-G', '%(build_2012)s', '-DCMAKE_INSTALL_PREFIX=%(install_path)s/lib/llvm-3.5/',
+                  '-DCMAKE_BUILD_TYPE=Release', '-DBUILD_SHARED_LIBS=0', '-DDEFAULT_SYSROOT=%(sysroot_path)s',
+                  '-DLLVM_DEFAULT_TARGET_TRIPLE=x86_64-linux-gnu', '-DLLVM_TARGET_ARCH=x86_64',
+                  '-DGCC_INSTALL_PREFIX=%(install_path)s/', '-DPYTHON_EXECUTABLE=%(install_path)s/bin/%(python)s'],
         {},
-        ['make', '-j', '16'],
-        ['make', 'install'],
-        ['make', 'clean'],
+        ['cmake', '--build', '.'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else []),
+        ['cmake', '--build', '.', '--target', 'install'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else []),
+        ['cmake', '--build', '.', '--target', 'clean'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else []),
     ),
     (
         'clang-3.6',
@@ -242,15 +244,14 @@ packages = [
         ],
         True,
         [],
-        ['bash', '%(src_path)s/configure', '--build=%(host)s', '--target=%(target)s', '--prefix=%(install_path)s/lib/llvm-3.6/',
-                 '--enable-optimized=yes', '--enable-assertions=no',  '--enable-threads=yes',
-                 '--enable-debug-symbols=no', '--enable-docs=no', '--program-prefix=', '--enable-targets=all',
-                 '--with-sysroot=%(sysroot_path)s', '--with-default-sysroot=%(sysroot_path)s', '--enable-pthreads=no',
-                 '--with-gcc-toolchain=%(install_path)s/', '--with-python=%(install_path)s/bin/python.exe'],
+        ['cmake', '%(src_path)s', '-G', '%(build_2012)s', '-DCMAKE_INSTALL_PREFIX=%(install_path)s/lib/llvm-3.6/',
+                  '-DCMAKE_BUILD_TYPE=Release', '-DBUILD_SHARED_LIBS=0', '-DDEFAULT_SYSROOT=%(sysroot_path)s',
+                  '-DLLVM_DEFAULT_TARGET_TRIPLE=x86_64-linux-gnu', '-DLLVM_TARGET_ARCH=x86_64',
+                  '-DGCC_INSTALL_PREFIX=%(install_path)s/', '-DPYTHON_EXECUTABLE=%(install_path)s/bin/%(python)s'],
         {},
-        ['make', '-j'],
-        ['make', 'install'],
-        ['make', 'clean'],
+        ['cmake', '--build', '.'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else []),
+        ['cmake', '--build', '.', '--target', 'install'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else []),
+        ['cmake', '--build', '.', '--target', 'clean'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else []),
     ),
     (
         'clang-3.7',
@@ -264,15 +265,14 @@ packages = [
         ],
         True,
         [],
-        ['bash', '%(src_path)s/configure', '--build=%(host)s', '--target=%(target)s', '--prefix=%(install_path)s/lib/llvm-3.7/',
-                 '--enable-optimized=yes', '--enable-assertions=no',  '--enable-threads=yes',
-                 '--enable-debug-symbols=no', '--enable-docs=no', '--program-prefix=', '--enable-targets=all',
-                 '--with-sysroot=%(sysroot_path)s', '--with-default-sysroot=%(sysroot_path)s', '--enable-pthreads=no',
-                 '--with-gcc-toolchain=%(install_path)s/', '--with-python=%(install_path)s/bin/python.exe'],
+        ['cmake', '%(src_path)s', '-G', '%(build_2013)s', '-DCMAKE_INSTALL_PREFIX=%(install_path)s/lib/llvm-3.7/',
+                  '-DCMAKE_BUILD_TYPE=Release', '-DBUILD_SHARED_LIBS=0', '-DDEFAULT_SYSROOT=%(sysroot_path)s',
+                  '-DLLVM_DEFAULT_TARGET_TRIPLE=x86_64-linux-gnu', '-DLLVM_TARGET_ARCH=x86_64',
+                  '-DGCC_INSTALL_PREFIX=%(install_path)s/', '-DPYTHON_EXECUTABLE=%(install_path)s/bin/%(python)s'],
         {},
-        ['make', '-j'],
-        ['make', 'install'],
-        ['make', 'clean'],
+        ['cmake', '--build', '.'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else []),
+        ['cmake', '--build', '.', '--target', 'install'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else []),
+        ['cmake', '--build', '.', '--target', 'clean'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else []),
     ),
     #(
     #    'clang-3.8',
@@ -290,12 +290,28 @@ packages = [
     #             '--enable-optimized=yes', '--enable-assertions=no',  '--enable-threads=yes',
     #             '--enable-debug-symbols=no', '--enable-docs=no', '--program-prefix=', '--enable-targets=all',
     #             '--with-sysroot=%(sysroot_path)s', '--with-default-sysroot=%(sysroot_path)s', '--enable-pthreads=no',
-    #             '--with-gcc-toolchain=%(install_path)s/', '--with-python=%(install_path)s/bin/python.exe'],
+    #             '--with-gcc-toolchain=%(install_path)s/', '--with-python=%(install_path)s/bin/%(python)s'],
     #    {},
     #    ['make', '-j8'],
     #    ['make', 'install'],
     #    ['make', 'clean'],
     #),
+    (
+        'gdb',
+        [
+            ('http://ftp.gnu.org/gnu/gdb/gdb-7.11.tar.xz', '', None)
+        ],
+        [],
+        True,
+        [],
+        ['bash', '%(src_path)s/configure', '--build=%(host)s', '--target=x86_64-linux-gnu', '--prefix=%(install_path)s',
+                 '--with-gmp=%(install_path)s', '--with-mpfr=%(install_path)s', '--with-mpc=%(install_path)s',
+                 '--with-python=%(install_path)s/', '--enable-targets=all'],
+        {},
+        ['make', '-j8'],
+        ['bash', '-c', 'make', 'install', '&&', 'make', 'install-strip-gdb'],
+        ['make', 'clean'],
+    ),
 ]
 
 
@@ -441,12 +457,17 @@ if __name__ == '__main__':
         'sysroot_path': os.path.abspath('pc-linux-gnu/sysroot').replace('\\', '/'),
         'host':         get_gcc_host(),
         'os':           sys.platform,
+        'python':       'python.exe' if sys.platform == 'win32' else 'python',
+        'gcc':          gcc,
+        'gxx':          gxx,
+        'build_2012':  'Visual Studio 11 2012 Win64'if sys.platform == 'win32' else 'Unix Makefiles',
+        'build_2013':  'Visual Studio 12 2013 Win64'if sys.platform == 'win32' else 'Unix Makefiles',
     }
     all_archs = [
-        ('x86_64', 'x86_64-pc-linux-gnu'),
-        #('powerpc', ''),
+        ('x86_64', 'x86_64-linux-gnu'),
+        ('powerpc', 'powerpc-linux-gnu'),
         #('armel', ''),
-        ('arm', 'arm-pc-linux-gnueabihf'),
+        ('arm', 'arm-linux-gnueabihf'),
         ('aarch64', 'aarch64-linux-gnu'),
         #'mips', ''),
         #'mipsel', ''),
