@@ -12,7 +12,7 @@ try:
     import urllib2
 except ImportError:
     from urllib import request as urllib2
-import bz2, lzma
+import bz2, lzma, gzip
 try:
     import cPickle as pickle
 except ImportError:
@@ -143,6 +143,8 @@ class Package:
         else:
             return True
 
+    def __str__(self):
+        return '%s:%s [%s]' % (self.package_name, self.package_arch, self.Version)
 
 def generate_ld_conf():
     with open('etc/ld.so.conf', 'w') as ld_so_conf:
@@ -226,8 +228,9 @@ def load_database():
             installed_packages = pickle.load(package_file)
     except Exception:
         installed_packages = {}
-        for arch in config['ARCHITECTURES']:
-            installed_packages[arch] = {}
+        for architectures,_,_,_ in config['MIRRORS']:
+            for arch in architectures:
+                installed_packages[arch] = {}
     try:
         with open(link_package_list_file, 'rb') as link_file:
             installed_links = pickle.load(link_file)
@@ -279,7 +282,7 @@ def do_download(package_list):
         filename = os.path.split(package.Filename)[1]
         filepath = os.path.join(package_folder, filename)
         with open(filepath, 'wb') as f:
-            f.write(download(config['MIRROR'] + '/' + package.Filename))
+            f.write(download(package.Url + '/' + package.Filename))
 
 
 def do_delete_packages(package_list):
@@ -366,48 +369,54 @@ def do_uninstall(package_list):
 def update():
     ensure_directories_exist()
     packages = {}
-    mirror = config['MIRROR']
+    mirrors = config['MIRRORS']
     package_count = 0
     package = None
-    for architecture in config['ARCHITECTURES']:
-        packages[architecture] = {}
-        for repository in config['REPOSITORIES']:
-            for dist in config['DISTS']:
-                url = '%s/dists/%s/%s/binary-%s/Packages.bz2'%(mirror, dist, repository, architecture)
-                try:
-                    package_compressed = download(url)
-                    package_data = bz2.decompress(package_compressed)
-                except Exception:
-                    url = '%s/dists/%s/%s/binary-%s/Packages.xz'%(mirror, dist, repository, architecture)
-                    package_compressed = download(url)
-                    package_data = lzma.decompress(package_compressed)
-                try:
-                    package_data = package_data.decode('latin1')
-                except Exception:
-                    pass
-                for line in package_data.split('\n'):
-                    if line:
-                        split = line.find(':')
-                        key = line[:split]
-                        value = line[split + 1:].strip()
-                    if key == 'Package':
-                        package = Package(value, architecture)
-                        package_count += 1
+    for architectures, mirror, dists, repositories in mirrors:
+        for architecture in architectures:
+            packages[architecture] = {}
+            for dist in dists:
+                for repository in repositories:
+                    for ext, decompress in (('xz', lzma.decompress), ('bz2', bz2.decompress), ('gz', gzip.decompress)):
+                        url = '%s/dists/%s/%s/binary-%s/Packages.%s'%(mirror, dist, repository, architecture, ext)
                         try:
-                            packages[architecture][value].append(package)
-                        except KeyError:
-                            packages[architecture][value] = [package]
+                            package_compressed = download(url)
+                        except Exception:
+                            pass
+                        else:
+                            package_data = decompress(package_compressed)
+                            break
                     else:
-                        if key in Package.KEYS:
-                            setattr(package, key, value)
-                            if key == 'Provides':
-                                provides = value.split(',')
-                                for p in provides:
-                                    p = p.strip()
-                                    try:
-                                        packages[architecture][p].append(package)
-                                    except:
-                                        packages[architecture][p] = [package]
+                        raise Exception ('could not download %s %s [%s]' %(dist, repository, architecture))
+
+                    try:
+                        package_data = package_data.decode('latin1')
+                    except Exception:
+                        pass
+                    for line in package_data.split('\n'):
+                        if line:
+                            split = line.find(':')
+                            key = line[:split]
+                            value = line[split + 1:].strip()
+                        if key == 'Package':
+                            package = Package(value, architecture)
+                            package.Url = mirror
+                            package_count += 1
+                            try:
+                                packages[architecture][value].append(package)
+                            except KeyError:
+                                packages[architecture][value] = [package]
+                        else:
+                            if key in Package.KEYS:
+                                setattr(package, key, value)
+                                if key == 'Provides':
+                                    provides = value.split(',')
+                                    for p in provides:
+                                        p = p.strip()
+                                        try:
+                                            packages[architecture][p].append(package)
+                                        except:
+                                            packages[architecture][p] = [package]
     with open(available_package_list_file, 'wb') as package_file:
         pickle.dump(packages, package_file)
     print('Information on %d packages' % package_count)
@@ -419,7 +428,7 @@ def upgrade():
 
 def install(package_list):
     available_packages, installed_packages, installed_links = load_database()
-    default_architecture = config['ARCHITECTURES'][0]
+    default_architecture = config['DEFAULT_ARCHITECTURE']
 
     package_list = [(p, None) for p in package_list]
     packages_to_check = []
@@ -439,7 +448,7 @@ def install(package_list):
         seen.add((package_name, arch))
 
         try:
-            available_list = sorted(available_packages[arch][package_name], reverse=True, key=lambda x: x.Version.split('-'))
+            available_list = sorted(available_packages[arch][package_name], reverse=True, key=lambda x: to_version(x.Version))
             for package in available_list:
                 if package.compatible(package_version):
                     break

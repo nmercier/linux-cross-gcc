@@ -1,13 +1,17 @@
-ARCHITECTURES=(
-	'amd64',
-	'i386',
-	'powerpc',
-	'armel',
-	'armhf',
-	'arm64',
-	'mips',
-	'mipsel',
+DEFAULT_ARCHITECTURE='amd64'
+MIRRORS = (
+    ((
+        'amd64',
+        'i386',
+        'powerpc',
+        #'armel',
+        'armhf',
+        'arm64',
+        'mips',
+        'mipsel',
+    ), 'http://ftp.se.debian.org/debian/', ['stable', 'testing', 'unstable'], ('main', 'contrib', 'non-free')),
+
+    ((
+        'ppc64',
+    ), 'http://ftp.debian-ports.org/debian/', ['unstable'], ('main',)),
 )
-MIRROR='http://ftp.se.debian.org/debian/'
-DISTS=['stable']
-REPOSITORIES=('main', 'contrib', 'non-free')

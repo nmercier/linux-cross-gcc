@@ -1,0 +1,37 @@
+diff -Naur gcc.src/gcc/config/mips/t-linux gcc-5/gcc/config/mips/t-linux
+--- gcc.src/gcc/config/mips/t-linux	1970-01-01 01:00:00.000000000 +0100
++++ gcc-5/gcc/config/mips/t-linux	2016-06-30 10:21:27.721759200 +0200
+@@ -0,0 +1,21 @@
++# Copyright (C) 2003-2014 Free Software Foundation, Inc.
++#
++# This file is part of GCC.
++#
++# GCC is free software; you can redistribute it and/or modify
++# it under the terms of the GNU General Public License as published by
++# the Free Software Foundation; either version 3, or (at your option)
++# any later version.
++#
++# GCC is distributed in the hope that it will be useful,
++# but WITHOUT ANY WARRANTY; without even the implied warranty of
++# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++# GNU General Public License for more details.
++#
++# You should have received a copy of the GNU General Public License
++# along with GCC; see the file COPYING3.  If not see
++# <http://www.gnu.org/licenses/>.
++
++MIPS_EL = $(if $(filter %el, $(firstword $(subst -, ,$(target)))),el)
++MIPS_SOFT = $(if $(strip $(filter MASK_SOFT_FLOAT_ABI, $(target_cpu_default)) $(filter soft, $(with_float))),soft)
++MULTIARCH_DIRNAME = $(call if_multiarch,mips$(MIPS_EL)-linux-gnu$(MIPS_SOFT))
+diff -Naur gcc.src/gcc/config.gcc gcc-5/gcc/config.gcc
+--- gcc.src/gcc/config.gcc	2016-06-30 10:26:35.357503200 +0200
++++ gcc-5/gcc/config.gcc	2016-06-30 10:21:47.972280200 +0200
+@@ -2052,6 +2052,8 @@
+ 	fi
+ 	if test x$enable_mips_multilibs = xyes; then
+ 		tmake_file="${tmake_file} mips/t-linux64"
++	else
++		tmake_file="${tmake_file} mips/t-linux"
+ 	fi
+ 	;;
+ mips*-mti-elf*)

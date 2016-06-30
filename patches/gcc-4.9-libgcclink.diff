@@ -1,0 +1,17 @@
+diff -Naur gcc-4.9.src/libgcc/config/t-slibgcc gcc-4.9/libgcc/config/t-slibgcc
+--- gcc-4.9.src/libgcc/config/t-slibgcc	2016-06-21 11:23:16.446468000 +0200
++++ gcc-4.9/libgcc/config/t-slibgcc	2016-06-21 13:12:04.449681700 +0200
+@@ -31,10 +31,11 @@
+ SHLIB_INSTALL_SOLINK = $(LN_S) $(SHLIB_DIR)/$(SHLIB_SONAME) \
+ 	$(DESTDIR)$(slibdir)$(SHLIB_SLIBDIR_QUAL)/$(SHLIB_SOLINK)
+ 
+-SHLIB_LINK = $(CC) $(LIBGCC2_CFLAGS) -shared -nodefaultlibs \
++SHLIB_LINK = echo $(SHLIB_OBJS) > .resp_file && $(CC) $(LIBGCC2_CFLAGS) -shared -nodefaultlibs \
+ 	$(SHLIB_LDFLAGS) \
+ 	-o $(SHLIB_DIR)/$(SHLIB_SONAME).tmp @multilib_flags@ \
+-	$(SHLIB_OBJS) $(SHLIB_LC) && \
++	$(SHLIB_LC) -Wl,@.resp_file && \
++	rm .resp_file && \
+ 	rm -f $(SHLIB_DIR)/$(SHLIB_SOLINK) && \
+ 	if [ -f $(SHLIB_DIR)/$(SHLIB_SONAME) ]; then \
+ 	  mv -f $(SHLIB_DIR)/$(SHLIB_SONAME) \

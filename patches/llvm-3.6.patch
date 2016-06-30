@@ -1,6 +1,6 @@
-diff -Naur llvm-3.6.2.orig/lib/Analysis/ConstantFolding.cpp llvm-3.6.2.src/lib/Analysis/ConstantFolding.cpp
---- llvm-3.6.2.orig/lib/Analysis/ConstantFolding.cpp	2014-11-19 08:49:26.000000000 +0100
-+++ llvm-3.6.2.src/lib/Analysis/ConstantFolding.cpp	2016-03-27 13:49:48.686425100 +0200
+diff -Naur clang-3.6.src/lib/Analysis/ConstantFolding.cpp clang-3.6/lib/Analysis/ConstantFolding.cpp
+--- clang-3.6.src/lib/Analysis/ConstantFolding.cpp	2014-11-19 08:49:26.000000000 +0100
++++ clang-3.6/lib/Analysis/ConstantFolding.cpp	2016-06-02 10:07:38.340851500 +0200
 @@ -38,6 +38,7 @@
  #include <cmath>
  
@@ -9,9 +9,19 @@ diff -Naur llvm-3.6.2.orig/lib/Analysis/ConstantFolding.cpp llvm-3.6.2.src/lib/A
  #include <fenv.h>
  #endif
  
-diff -Naur llvm-3.6.2.orig/tools/clang/include/clang/Driver/Driver.h llvm-3.6.2.src/tools/clang/include/clang/Driver/Driver.h
---- llvm-3.6.2.orig/tools/clang/include/clang/Driver/Driver.h	2015-01-09 18:38:53.000000000 +0100
-+++ llvm-3.6.2.src/tools/clang/include/clang/Driver/Driver.h	2016-03-27 13:49:48.691428100 +0200
+diff -Naur clang-3.6.src/lib/Support/Windows/Host.inc clang-3.6/lib/Support/Windows/Host.inc
+--- clang-3.6.src/lib/Support/Windows/Host.inc	2014-09-24 06:45:14.000000000 +0200
++++ clang-3.6/lib/Support/Windows/Host.inc	2016-06-02 10:08:26.414403200 +0200
+@@ -18,5 +18,5 @@
+ using namespace llvm;
+ 
+ std::string sys::getDefaultTargetTriple() {
+-  return Triple::normalize(LLVM_DEFAULT_TARGET_TRIPLE);
++  return LLVM_DEFAULT_TARGET_TRIPLE;
+ }
+diff -Naur clang-3.6.src/tools/clang/include/clang/Driver/Driver.h clang-3.6/tools/clang/include/clang/Driver/Driver.h
+--- clang-3.6.src/tools/clang/include/clang/Driver/Driver.h	2015-01-09 18:38:53.000000000 +0100
++++ clang-3.6/tools/clang/include/clang/Driver/Driver.h	2016-06-02 10:07:38.346851400 +0200
 @@ -98,6 +98,9 @@
    /// Dynamic loader prefix, if present
    std::string DyldPrefix;
@@ -34,9 +44,9 @@ diff -Naur llvm-3.6.2.orig/tools/clang/include/clang/Driver/Driver.h llvm-3.6.2.
    /// \brief Get the path to the main clang executable.
    const char *getClangProgramPath() const {
      return ClangExecutable.c_str();
-diff -Naur llvm-3.6.2.orig/tools/clang/lib/Driver/Driver.cpp llvm-3.6.2.src/tools/clang/lib/Driver/Driver.cpp
---- llvm-3.6.2.orig/tools/clang/lib/Driver/Driver.cpp	2015-01-12 03:33:09.000000000 +0100
-+++ llvm-3.6.2.src/tools/clang/lib/Driver/Driver.cpp	2016-03-27 13:49:48.697425700 +0200
+diff -Naur clang-3.6.src/tools/clang/lib/Driver/Driver.cpp clang-3.6/tools/clang/lib/Driver/Driver.cpp
+--- clang-3.6.src/tools/clang/lib/Driver/Driver.cpp	2015-01-12 03:33:09.000000000 +0100
++++ clang-3.6/tools/clang/lib/Driver/Driver.cpp	2016-06-02 10:09:43.518341800 +0200
 @@ -24,6 +24,7 @@
  #include "llvm/ADT/StringExtras.h"
  #include "llvm/ADT/StringSet.h"
@@ -49,12 +59,12 @@ diff -Naur llvm-3.6.2.orig/tools/clang/lib/Driver/Driver.cpp llvm-3.6.2.src/tool
  using namespace clang;
  using namespace llvm::opt;
  
-+static bool isPrefixFolderOf(StringRef prefix, StringRef path) {
-+  bool IsEndWithBackslash = ((path.size() >= prefix.size()) &&
-+                              path[prefix.size()] == '/') ||
-+                            prefix[prefix.size()-1] == '/';
-+  bool IsPrefix = path.startswith(prefix);
-+  return (IsEndWithBackslash && IsPrefix) || prefix.equals(path);
++static size_t getPrefixFolderOf(StringRef prefix, StringRef path) {
++  size_t Common;
++  for (Common = 0; Common < prefix.size() && Common < path.size()
++                && (prefix[Common] == path[Common] || (llvm::sys::path::is_separator(prefix[Common])
++                                                    && llvm::sys::path::is_separator(path[Common]))); ++Common) { }
++  return Common;
 +}
 +
  Driver::Driver(StringRef ClangExecutable,
@@ -66,7 +76,7 @@ diff -Naur llvm-3.6.2.orig/tools/clang/lib/Driver/Driver.cpp llvm-3.6.2.src/tool
      UseStdLib(true), DefaultTargetTriple(DefaultTargetTriple),
      DriverTitle("clang LLVM compiler"),
      CCPrintOptionsFilename(nullptr), CCPrintHeadersFilename(nullptr),
-@@ -58,9 +68,38 @@
+@@ -58,9 +68,51 @@
      CCGenDiagnostics(false), CCCGenericGCCName(""), CheckInputsExist(true),
      CCCUsePCH(true), SuppressMissingInputWarning(false) {
  
@@ -81,33 +91,46 @@ diff -Naur llvm-3.6.2.orig/tools/clang/lib/Driver/Driver.cpp llvm-3.6.2.src/tool
 +    // Try to relocate the sysroot/gcc install path when prefix of
 +    // ClangExecutable not equal to LLVM_PREFIX.
 +    StringRef LLVMPrefix = LLVM_PREFIX;
-+    if (!isPrefixFolderOf(LLVMPrefix, ClangExecutable)) {
-+      // We only recognize the case for default sysroot/gcc install path is
-+      // sub-folder of install prefix.
-+      StringRef UpperFolder = "/../";
-+      Twine RelocatedBase = Dir + UpperFolder;
-+      if (isPrefixFolderOf(LLVMPrefix, SysRoot)) {
-+        // Need relocate sysroot !
-+        StringRef RelativePath = DefaultSysroot.data() + LLVMPrefix.size();
-+        Twine RelocatedPath = RelocatedBase + RelativePath;
-+        SysRoot = RelocatedPath.str();
++    size_t CommonPrefixLength = getPrefixFolderOf(LLVMPrefix, ClangExecutable);
++    if (CommonPrefixLength != LLVMPrefix.size()) {
++      StringRef Sep = "/";
++      {
++        size_t CommonSysrootLength = getPrefixFolderOf(LLVMPrefix, DefaultSysroot);
++        StringRef RelativePath = DefaultSysroot.substr(CommonSysrootLength);
++        StringRef SkipPath = LLVMPrefix.substr(CommonSysrootLength + (llvm::sys::path::is_separator(LLVMPrefix[CommonSysrootLength]) ? 1 : 0));
++        StringRef RelocatedBase = llvm::sys::path::parent_path(Dir);
++        for (llvm::sys::path::const_iterator it = llvm::sys::path::begin(SkipPath), end = llvm::sys::path::end(SkipPath);
++             it != end;
++             ++it) {
++          RelocatedBase = llvm::sys::path::parent_path(RelocatedBase);
++        }
++        if (llvm::sys::fs::is_directory(RelocatedBase + Sep + RelativePath)) {
++          SysRoot =  (RelocatedBase + Sep + RelativePath).str();
++        }
 +      }
-+      if (isPrefixFolderOf(LLVMPrefix, DefaultGCCInstallPath)) {
-+        // Need relocate default gcc install path !
-+        StringRef RelativePath = DefaultGCCInstallPathRef.data() +
-+                                 LLVMPrefix.size();
-+        Twine RelocatedPath = RelocatedBase + RelativePath;
-+        DefaultGCCInstallPath = RelocatedPath.str();
++
++      {
++        size_t CommonGCCInstallLength = getPrefixFolderOf(LLVMPrefix, DefaultGCCInstallPath);
++        StringRef RelativePath = DefaultGCCInstallPath.substr(CommonGCCInstallLength);
++        StringRef SkipPath = LLVMPrefix.substr(CommonGCCInstallLength + (llvm::sys::path::is_separator(LLVMPrefix[CommonGCCInstallLength]) ? 1 : 0));
++        StringRef RelocatedBase = llvm::sys::path::parent_path(Dir);
++        for (llvm::sys::path::const_iterator it = llvm::sys::path::begin(SkipPath);
++             it != llvm::sys::path::end(SkipPath);
++             ++it) {
++          RelocatedBase = llvm::sys::path::parent_path(RelocatedBase);
++        }
++        if (llvm::sys::fs::is_directory(RelocatedBase + Sep + RelativePath)) {
++          DefaultGCCInstallPath =  (RelocatedBase + Sep + RelativePath).str();
++        }
 +      }
 +    }
 +  }
-+
    // Compute the path to the resource directory.
    StringRef ClangResourceDir(CLANG_RESOURCE_DIR);
    SmallString<128> P(Dir);
-diff -Naur llvm-3.6.2.orig/tools/clang/lib/Driver/ToolChain.cpp llvm-3.6.2.src/tools/clang/lib/Driver/ToolChain.cpp
---- llvm-3.6.2.orig/tools/clang/lib/Driver/ToolChain.cpp	2014-12-21 08:00:00.000000000 +0100
-+++ llvm-3.6.2.src/tools/clang/lib/Driver/ToolChain.cpp	2016-03-27 13:49:48.702425600 +0200
+diff -Naur clang-3.6.src/tools/clang/lib/Driver/ToolChain.cpp clang-3.6/tools/clang/lib/Driver/ToolChain.cpp
+--- clang-3.6.src/tools/clang/lib/Driver/ToolChain.cpp	2014-12-21 08:00:00.000000000 +0100
++++ clang-3.6/tools/clang/lib/Driver/ToolChain.cpp	2016-06-02 10:08:26.391372700 +0200
 @@ -17,6 +17,7 @@
  #include "clang/Driver/ToolChain.h"
  #include "llvm/ADT/SmallString.h"
@@ -116,9 +139,9 @@ diff -Naur llvm-3.6.2.orig/tools/clang/lib/Driver/ToolChain.cpp llvm-3.6.2.src/t
  #include "llvm/Option/Arg.h"
  #include "llvm/Option/ArgList.h"
  #include "llvm/Option/Option.h"
-diff -Naur llvm-3.6.2.orig/tools/clang/lib/Driver/ToolChains.cpp llvm-3.6.2.src/tools/clang/lib/Driver/ToolChains.cpp
---- llvm-3.6.2.orig/tools/clang/lib/Driver/ToolChains.cpp	2015-04-27 10:13:25.000000000 +0200
-+++ llvm-3.6.2.src/tools/clang/lib/Driver/ToolChains.cpp	2016-03-27 23:15:05.555302200 +0200
+diff -Naur clang-3.6.src/tools/clang/lib/Driver/ToolChains.cpp clang-3.6/tools/clang/lib/Driver/ToolChains.cpp
+--- clang-3.6.src/tools/clang/lib/Driver/ToolChains.cpp	2015-04-27 10:13:25.000000000 +0200
++++ clang-3.6/tools/clang/lib/Driver/ToolChains.cpp	2016-06-02 10:08:26.398373500 +0200
 @@ -11,6 +11,7 @@
  #include "clang/Basic/ObjCRuntime.h"
  #include "clang/Basic/Version.h"
@@ -220,9 +243,9 @@ diff -Naur llvm-3.6.2.orig/tools/clang/lib/Driver/ToolChains.cpp llvm-3.6.2.src/
  
    llvm::sys::path::append(IncludeDir, "hexagon/include/c++/");
    llvm::sys::path::append(IncludeDir, Ver);
-diff -Naur llvm-3.6.2.orig/tools/clang/lib/Driver/ToolChains.h llvm-3.6.2.src/tools/clang/lib/Driver/ToolChains.h
---- llvm-3.6.2.orig/tools/clang/lib/Driver/ToolChains.h	2015-01-14 08:55:36.000000000 +0100
-+++ llvm-3.6.2.src/tools/clang/lib/Driver/ToolChains.h	2016-03-27 23:12:36.298914700 +0200
+diff -Naur clang-3.6.src/tools/clang/lib/Driver/ToolChains.h clang-3.6/tools/clang/lib/Driver/ToolChains.h
+--- clang-3.6.src/tools/clang/lib/Driver/ToolChains.h	2015-01-14 08:55:36.000000000 +0100
++++ clang-3.6/tools/clang/lib/Driver/ToolChains.h	2016-06-02 10:08:26.403373400 +0200
 @@ -683,7 +683,8 @@
    StringRef GetGCCLibAndIncVersion() const { return GCCLibAndIncVersion.Text; }
  
@@ -233,9 +256,9 @@ diff -Naur llvm-3.6.2.orig/tools/clang/lib/Driver/ToolChains.h llvm-3.6.2.src/to
  
    static StringRef GetTargetCPU(const llvm::opt::ArgList &Args);
  };
-diff -Naur llvm-3.6.2.orig/tools/clang/lib/Driver/Tools.cpp llvm-3.6.2.src/tools/clang/lib/Driver/Tools.cpp
---- llvm-3.6.2.orig/tools/clang/lib/Driver/Tools.cpp	2015-02-03 23:57:34.000000000 +0100
-+++ llvm-3.6.2.src/tools/clang/lib/Driver/Tools.cpp	2016-03-27 23:14:40.371167800 +0200
+diff -Naur clang-3.6.src/tools/clang/lib/Driver/Tools.cpp clang-3.6/tools/clang/lib/Driver/Tools.cpp
+--- clang-3.6.src/tools/clang/lib/Driver/Tools.cpp	2015-02-03 23:57:34.000000000 +0100
++++ clang-3.6/tools/clang/lib/Driver/Tools.cpp	2016-06-02 10:08:26.409374500 +0200
 @@ -5258,7 +5258,7 @@
    const std::string G0Suffix = "/G0";
    const std::string MarchG0Suffix = MarchSuffix + G0Suffix;
@@ -245,13 +268,3 @@ diff -Naur llvm-3.6.2.orig/tools/clang/lib/Driver/Tools.cpp llvm-3.6.2.src/tools
    const std::string StartFilesDir = RootDir
                                      + "hexagon/lib"
                                      + (buildingLib
-diff -Naur llvm-3.6.2.orig/lib/Support/Windows/Host.inc llvm-3.6.2.src/lib/Support/Windows/Host.inc
---- llvm-3.6.2.orig/lib/Support/Windows/Host.inc	2014-03-29 02:08:53.000000000 +0100
-+++ llvm-3.6.2.src/lib/Support/Windows/Host.inc	2016-05-24 11:34:53.806478400 +0200
-@@ -18,5 +18,5 @@
- using namespace llvm;
- 
- std::string sys::getDefaultTargetTriple() {
--  return Triple::normalize(LLVM_DEFAULT_TARGET_TRIPLE);
-+  return LLVM_DEFAULT_TARGET_TRIPLE;
- }
