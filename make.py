@@ -40,6 +40,9 @@ else:
 env['CFLAGS']   = ' '.join(platform_flags.get(sys.platform, []) + [env.get('CFLAGS', '')])
 env['CXXFLAGS'] = ' '.join(platform_flags.get(sys.platform, []) + [env.get('CXXFLAGS', '')])
 env['LDFLAGS']  = ' '.join(platform_flags.get(sys.platform, []) + [env.get('LDFLAGS', '')])
+env['CFLAGS_FOR_TARGET']   = ' '.join(['-Os', '-g'] + [env.get('CFLAGS_FOR_TARGET', '')])
+env['CXXFLAGS_FOR_TARGET']   = ' '.join(['-Os', '-g'] + [env.get('CXXFLAGS_FOR_TARGET', '')])
+#env['LDFLAGS_FOR_TARGET']   = ' '.join(['-g', '-v'] + [env.get('LDFLAGS_FOR_TARGET', '')])
 for target_platform, _ in target_platforms:
     env['PATH'] = env['PATH'] + os.pathsep + os.path.abspath('pc-%s/bin' % target_platform).replace('\\', '/')
 
@@ -232,7 +235,7 @@ packages = [
         ],
         [
             ('gcc-4.9.2.patch', 2),
-            ('gcc-5-multiarch.diff', 2),
+            ('gcc-6-multiarch.diff', 2),
             ('gcc-mips-multiarch.diff', 1),
             ('gcc-4.9-libgcclink.diff', 1),
             ('gcc-5-responsefile.diff', 1),
@@ -240,7 +243,7 @@ packages = [
         False,
         [],
         ['bash', '%(src_path)s/configure', '--build=%(host)s', '--target=%(target)s', '--prefix=%(install_path)s',
-                 '--enable-static', '--enable-shared', '--enable-multiarch', '--disable-nls', '--disable-sjlj',
+                 '--enable-shared', '--enable-multiarch', '--disable-nls', '--disable-sjlj',
                  '--enable-objc-gc', '--enable-languages=c,c++,objc,obj-c++',
                  '--with-sysroot=%(sysroot_path)s', '--with-build-sysroot=%(sysroot_path)s', '--disable-multilib',
                  '--with-gmp=%(install_path)s', '--with-mpfr=%(install_path)s', '--with-mpc=%(install_path)s',
