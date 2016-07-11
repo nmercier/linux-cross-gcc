@@ -1,0 +1,22 @@
+--- clang-3.4.src/tools/clang/lib/Driver/ToolChains.cpp	2016-07-08 21:41:35.179984600 +0200
++++ clang-3.4/tools/clang/lib/Driver/ToolChains.cpp	2016-07-08 21:43:16.958753800 +0200
+@@ -1964,6 +1964,19 @@
+ FreeBSD::FreeBSD(const Driver &D, const llvm::Triple& Triple, const ArgList &Args)
+   : Generic_ELF(D, Triple, Args) {
+ 
++  // Cross-compiling binutils and GCC installations (vanilla and openSUSE at
++  // least) put various tools in a triple-prefixed directory off of the parent
++  // of the GCC installation. We use the GCC triple here to ensure that we end
++  // up with tools that support the same amount of cross compiling as the
++  // detected GCC installation. For example, if we find a GCC installation
++  // targeting x86_64, but it is a bi-arch GCC installation, it can also be
++  // used to target i386.
++  // FIXME: This seems unlikely to be Linux-specific.
++  ToolChain::path_list &PPaths = getProgramPaths();
++  PPaths.push_back(Twine(GCCInstallation.getParentLibPath() + "/../" +
++                         GCCInstallation.getTriple().str() + "/bin").str());
++  PPaths.push_back(Twine(GCCInstallation.getParentLibPath() + "/../bin").str());
++
+   // When targeting 32-bit platforms, look for '/usr/lib32/crt1.o' and fall
+   // back to '/usr/lib' if it doesn't exist.
+   if ((Triple.getArch() == llvm::Triple::x86 ||

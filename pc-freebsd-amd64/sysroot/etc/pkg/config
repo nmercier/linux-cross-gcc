@@ -1,0 +1,3 @@
+ARCHITECTURE=('amd64', 'amd64', False)
+MIRROR='http://ftp.freebsd.org/pub/FreeBSD/releases/'
+DIST='10.3-RELEASE'

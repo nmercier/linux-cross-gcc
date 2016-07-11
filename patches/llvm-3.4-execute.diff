@@ -1,0 +1,42 @@
+diff -Naur clang-3.4.src/lib/Support/Windows/Path.inc clang-3.4/lib/Support/Windows/Path.inc
+--- clang-3.4.src/lib/Support/Windows/Path.inc	2013-10-07 11:52:36.000000000 +0200
++++ clang-3.4/lib/Support/Windows/Path.inc	2016-07-08 23:52:41.666897800 +0200
+@@ -467,7 +467,7 @@
+   return (Attr != INVALID_FILE_ATTRIBUTES) && !(Attr & FILE_ATTRIBUTE_READONLY);
+ }
+ 
+-bool can_execute(const Twine &Path) {
++static bool can_execute_helper(const Twine &Path) {
+   SmallString<128> PathStorage;
+   SmallVector<wchar_t, 128> PathUtf16;
+ 
+@@ -478,6 +478,11 @@
+   return Attr != INVALID_FILE_ATTRIBUTES;
+ }
+ 
++bool can_execute(const Twine &Path) {
++  return can_execute_helper(Path)
++      || can_execute_helper(Path + ".exe");
++}
++
+ bool equivalent(file_status A, file_status B) {
+   assert(status_known(A) && status_known(B));
+   return A.FileIndexHigh      == B.FileIndexHigh &&
+diff -Naur clang-3.4.src/lib/Support/Windows/Program.inc clang-3.4/lib/Support/Windows/Program.inc
+--- clang-3.4.src/lib/Support/Windows/Program.inc	2013-10-18 09:09:58.000000000 +0200
++++ clang-3.4/lib/Support/Windows/Program.inc	2016-07-08 23:45:50.036546800 +0200
+@@ -176,6 +176,14 @@
+     return false;
+   }
+ 
++  // can_execute may succeed by looking at Program + ".exe". CreateProcessW
++  // will implicitly add the .exe if we provide a command line without an
++  // executable path, but since we use an explicit executable, we have to add
++  // ".exe" ourselves.
++  SmallString<64> ProgramStorage;
++  if (!sys::fs::exists(Program))
++    Program = Twine(Program + ".exe").toStringRef(ProgramStorage);
++
+   // Windows wants a command line, not an array of args, to pass to the new
+   // process.  We have to concatenate them all, while quoting the args that
+   // have embedded spaces (or are empty).

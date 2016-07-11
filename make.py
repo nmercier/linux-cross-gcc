@@ -16,40 +16,71 @@ except ImportError:
 
 cols = 80
 
-target_platforms = (
-    ('linux-gnu', 'linux-gnu'),
-    ('freebsd', 'freebsd9.0'),
+target_paths = (
+    'pc-freebsd-i386',
+    'pc-freebsd-amd64',
+    'pc-freebsd-ppc',
+    'pc-freebsd-ppc64',
+    'pc-freebsd-aarch64',
+    'pc-linux-gnu',
 )
 
 platform_flags = {
     'darwin':   [],
     'win32':    [],
 }
-env = os.environ.copy()
-if 'CC' in env:
-    gcc = env['CC']
-    gxx = env['CXX']
+global_env = os.environ.copy()
+if 'CC' in global_env:
+    gcc = global_env['CC']
+    gxx = global_env['CXX']
 elif sys.platform == 'win32':
     gcc = 'gcc'
     gxx = 'g++'
 else:
     gcc=''
     gxx=''
-    #env['CC'] = gcc
-    #env['CXX'] = gxx
-env['CFLAGS']   = ' '.join(platform_flags.get(sys.platform, []) + [env.get('CFLAGS', '')])
-env['CXXFLAGS'] = ' '.join(platform_flags.get(sys.platform, []) + [env.get('CXXFLAGS', '')])
-env['LDFLAGS']  = ' '.join(platform_flags.get(sys.platform, []) + [env.get('LDFLAGS', '')])
-env['CFLAGS_FOR_TARGET']   = ' '.join(['-Os', '-g'] + [env.get('CFLAGS_FOR_TARGET', '')])
-env['CXXFLAGS_FOR_TARGET']   = ' '.join(['-Os', '-g'] + [env.get('CXXFLAGS_FOR_TARGET', '')])
-#env['LDFLAGS_FOR_TARGET']   = ' '.join(['-g', '-v'] + [env.get('LDFLAGS_FOR_TARGET', '')])
-for target_platform, _ in target_platforms:
-    env['PATH'] = env['PATH'] + os.pathsep + os.path.abspath('pc-%s/bin' % target_platform).replace('\\', '/')
+    #global_env['CC'] = gcc
+    #global_env['CXX'] = gxx
+global_env['CFLAGS']   = ' '.join(platform_flags.get(sys.platform, []) + [global_env.get('CFLAGS', '')])
+global_env['CXXFLAGS'] = ' '.join(platform_flags.get(sys.platform, []) + [global_env.get('CXXFLAGS', '')])
+global_env['LDFLAGS']  = ' '.join(platform_flags.get(sys.platform, []) + [global_env.get('LDFLAGS', '')])
+#global_env['CFLAGS_FOR_TARGET']   = ' '.join(['-O1', '-g'] + [env.get('CFLAGS_FOR_TARGET', '')])
+#global_env['CXXFLAGS_FOR_TARGET']   = ' '.join(['-O1', '-g'] + [env.get('CXXFLAGS_FOR_TARGET', '')])
+#global_env['LDFLAGS_FOR_TARGET']   = ' '.join(['-g', '-v'] + [env.get('LDFLAGS_FOR_TARGET', '')])
+for target_path in target_paths:
+    global_env['PATH'] = global_env['PATH'] + os.pathsep + os.path.abspath('%s/bin' % target_path).replace('\\', '/')
 
 
-def get_supported_archs(platform, sysroot):
+def get_arch(file):
+    machines = {
+        'PowerPC64':                        ('powerpc64', 'ppc64el'),
+        'PowerPC':                          ('powerpc', 'ppcel'),
+        'Intel 80386':                      ('', 'i386'),
+        'Advanced Micro Devices X86-64':    ('', 'x86_64'),
+        'AArch64':                          ('aarch64', 'aarch64el'),
+        'ARM':                              ('arm', 'armel'),
+        'MIPS R3000':                       ('mips', 'mipsel'),
+    }
+    p = subprocess.Popen(['readelf', '-h', file], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    out, err = p.communicate()
+    if not isinstance(out, str):
+        out = out.decode(sys.stdout.encoding, errors='ignore')
+    for line in out.splitlines():
+        line = line.strip()
+        if line.startswith('Machine:'):
+            machine = line[len('Machine:'):].strip()
+        if line.startswith('Data:'):
+            data = line[len('Data:'):].split(',')[1].strip()
+    return machines[machine][1 if data == 'little endian' else 0]
+
+
+def get_supported_archs(sysroot):
     result = []
-    if platform == 'linux-gnu':
+    if os.path.isfile(os.path.join(sysroot, 'lib/ld-linux.so.2')):
+        target_platform = 'linux-gnu'
+        target_abi = 'linux-gnu'
+        target_arch = 'x86_64'
+        target_multiarch = True
         try:
             all_files = os.listdir(os.path.join(sysroot, 'lib'))
         except OSError:
@@ -58,12 +89,32 @@ def get_supported_archs(platform, sysroot):
             for l in all_files:
                 if l.find('linux-gnu') > 0 and os.path.isdir(os.path.join(sysroot, 'lib', l)):
                     arch = l.split('-')[0]
-                    result.append((arch, l))
-    elif platform == 'freebsd':
-        result.append(['x86_64', 'x86_64-pc-freebsd9.0'])
+                    result.append((arch, l, [], {}))
+    elif os.path.isfile(os.path.join(sysroot, 'bin/freebsd-version')):
+        p = subprocess.Popen(['sh', os.path.join(sysroot, 'bin/freebsd-version')], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        out, err = p.communicate()
+        if not isinstance(out, str):
+            out = out.decode(sys.stdout.encoding, errors='ignore')
+        out = out[:out.find('.')]
+        target_platform = 'freebsd'
+        target_arch = get_arch(os.path.join(sysroot, 'usr/lib/crt1.o'))
+        target_abi = 'pc-freebsd%s.0' % (out)
+        target_multiarch = False
+        if os.path.isfile(os.path.join(sysroot, 'usr/lib32/crt1.o')):
+            arch = get_arch(os.path.join(sysroot, 'usr/lib32/crt1.o'))
+            abi = 'pc-freebsd%s.0' % (out)
+            if not os.path.isfile('bld/lib32.h'):
+                with open('bld/lib32.h', 'w') as f:
+                    f.write('#define STANDARD_STARTFILE_PREFIX_1 "/lib32/"\n')
+                    f.write('#define STANDARD_STARTFILE_PREFIX_2 "/usr/lib32/"\n')
+            result.append((arch, arch + '-' + abi,
+                           ['--with-lib-path==/lib32:=/usr/lib32:=/usr/local/lib32',
+                            'CFLAGS=-include %s' % os.path.abspath('bld/lib32.h').replace('\\', '/'),
+                            'CXXFLAGS=-include %s' % os.path.abspath('bld/lib32.h').replace('\\', '/')], {}))
+        result.append((target_arch, target_arch + '-' + target_abi, [], {}))
     else:
-        raise Exception("Don't know how to read supproted archs for target %s" % platform)
-    return result
+        raise Exception("Don't know how to read supported archs for target %s" % sysroot)
+    return target_platform, target_abi, target_arch, target_multiarch, result
 
 
 def get_gcc_host():
@@ -109,7 +160,7 @@ packages = [
     (
         'gmp',
         [
-            ('http://ftp.gnu.org/gnu/gmp/gmp-6.0.0a.tar.bz2', '', None),
+            ('http://ftp.gnu.org/gnu/gmp/gmp-6.1.1.tar.bz2', '', None),
         ],
         [],
         True,
@@ -138,7 +189,7 @@ packages = [
     (
         'mpc',
         [
-            ('ftp://ftp.gnu.org/gnu/mpc/mpc-1.0.2.tar.gz', '', None),
+            ('ftp://ftp.gnu.org/gnu/mpc/mpc-1.0.3.tar.gz', '', None),
         ],
         [],
         True,
@@ -162,7 +213,7 @@ packages = [
         [],
         ['bash', '%(src_path)s/configure', '--build=%(host)s', '--target=%(target)s', '--prefix=%(install_path)s',
                  '--enable-static', '--disable-shared', '--enable-gold', '--with-sysroot=%(sysroot_path)s',
-                 '--enable-multiarch', '--disable-multilib', '--disable-nls', '--enable-lto', '--enable-objc-gc',
+                 '%(multiarch)s', '--disable-multilib', '--disable-nls', '--enable-lto', '--enable-objc-gc',
                  '--with-gmp=%(install_path)s', '--with-mpfr=%(install_path)s', '--with-mpc=%(install_path)s'],
         {},
         ['make', '-j'],
@@ -183,16 +234,16 @@ packages = [
         False,
         ['aarch64'],
         ['bash', '%(src_path)s/configure', '--build=%(host)s', '--target=%(target)s', '--prefix=%(install_path)s',
-                 '--enable-static', '--enable-shared', '--enable-multiarch', '--disable-nls', '--disable-sjlj',
+                 '--enable-static', '--enable-shared', '%(multiarch)s', '--disable-nls', '--disable-sjlj',
                  '--enable-objc-gc', '--enable-languages=c,c++,objc,obj-c++', '--disable-multilib',
                  '--with-sysroot=%(sysroot_path)s', '--with-build-sysroot=%(sysroot_path)s',
                  '--with-gmp=%(install_path)s', '--with-mpfr=%(install_path)s', '--with-mpc=%(install_path)s',
                  '--program-prefix=%(target)s-', '--program-suffix=-4.9', '--enable-gold'],
         {
-            'powerpc': ['--disable-multilib', '--disable-soft-float', '--with-float=hard'],
-            'arm': ['--with-arch-directory=arm', '--with-arch=armv7-a', '--with-fpu=vfpv3-d16', '--with-float=hard', '--with-mode=thumb'],
-            'mipsel': ['--with-endian=little', '--with-arch-directory=mipsel', '--with-arch-32=mips2', '--with-tune-32=mips32r2', '--with-fp-32=xx',],
-            'mips': ['--with-arch-directory=mips', '--with-arch-32=mips2', '--with-tune-32=mips32r2', '--with-fp-32=xx',],
+            'powerpc': (['--disable-multilib', '--disable-soft-float', '--with-float=hard'], {}),
+            'arm': (['--with-arch-directory=arm', '--with-arch=armv7-a', '--with-fpu=vfpv3-d16', '--with-float=hard', '--with-mode=thumb'], {}),
+            'mipsel': (['--with-endian=little', '--with-arch-directory=mipsel', '--with-arch-32=mips2', '--with-tune-32=mips32r2', '--with-fp-32=xx',], {'CFLAGS_FOR_TARGET':'-O1 -g', 'CXXFLAGS_FOR_TARGET': '-O1 -g'}),
+            'mips': (['--with-arch-directory=mips', '--with-arch-32=mips2', '--with-tune-32=mips32r2', '--with-fp-32=xx',], {'CFLAGS_FOR_TARGET':'-O1 -g', 'CXXFLAGS_FOR_TARGET': '-O1 -g'}),
         },
         ['make', '-j', '16'],
         ['make', 'install-strip'],
@@ -213,16 +264,16 @@ packages = [
         False,
         [],
         ['bash', '%(src_path)s/configure', '--build=%(host)s', '--target=%(target)s', '--prefix=%(install_path)s',
-                 '--enable-shared', '--enable-multiarch', '--disable-nls', '--disable-sjlj',
+                 '--enable-shared', '%(multiarch)s', '--disable-nls', '--disable-sjlj',
                  '--enable-objc-gc', '--enable-languages=c,c++,objc,obj-c++',
                  '--with-sysroot=%(sysroot_path)s', '--with-build-sysroot=%(sysroot_path)s', '--disable-multilib',
                  '--with-gmp=%(install_path)s', '--with-mpfr=%(install_path)s', '--with-mpc=%(install_path)s',
                  '--program-prefix=%(target)s-', '--program-suffix=-5', '--enable-gold'],
         {
-            'powerpc': ['--disable-multilib', '--disable-soft-float', '--with-float=hard'],
-            'arm': ['--with-arch-directory=arm', '--with-arch=armv7-a', '--with-fpu=vfpv3-d16', '--with-float=hard', '--with-mode=thumb'],
-            'mipsel': ['--with-endian=little', '--with-arch-directory=mipsel', '--with-arch-32=mips32r2', '--with-fp-32=xx', '--disable-libitm', '--disable-libsanitizer', '--disable-libquadmath', ],
-            'mips': ['--with-arch-directory=mips', '--with-arch-32=mips32r2', '--with-fp-32=xx', '--disable-libitm', '--disable-libsanitizer', '--disable-libquadmath', ],
+            'powerpc': (['--disable-multilib', '--disable-soft-float', '--with-float=hard'], {}),
+            'arm': (['--with-arch-directory=arm', '--with-arch=armv7-a', '--with-fpu=vfpv3-d16', '--with-float=hard', '--with-mode=thumb'], {}),
+            'mipsel': (['--with-endian=little', '--with-arch-directory=mipsel', '--with-arch-32=mips32r2', '--with-fp-32=xx', '--disable-libitm', '--disable-libsanitizer', '--disable-libquadmath', ], {'CFLAGS_FOR_TARGET':'-O0 -g', 'CXXFLAGS_FOR_TARGET': '-O0 -g'}),
+            'mips': (['--with-arch-directory=mips', '--with-arch-32=mips32r2', '--with-fp-32=xx', '--disable-libitm', '--disable-libsanitizer', '--disable-libquadmath', ], {'CFLAGS_FOR_TARGET':'-O0 -g', 'CXXFLAGS_FOR_TARGET': '-O0 -g'}),
         },
         ['make', '-j', '16'],
         ['make', 'install-strip'],
@@ -243,16 +294,16 @@ packages = [
         False,
         [],
         ['bash', '%(src_path)s/configure', '--build=%(host)s', '--target=%(target)s', '--prefix=%(install_path)s',
-                 '--enable-shared', '--enable-multiarch', '--disable-nls', '--disable-sjlj',
+                 '--enable-shared', '%(multiarch)s', '--disable-nls', '--disable-sjlj',
                  '--enable-objc-gc', '--enable-languages=c,c++,objc,obj-c++',
                  '--with-sysroot=%(sysroot_path)s', '--with-build-sysroot=%(sysroot_path)s', '--disable-multilib',
                  '--with-gmp=%(install_path)s', '--with-mpfr=%(install_path)s', '--with-mpc=%(install_path)s',
                  '--program-prefix=%(target)s-', '--program-suffix=-6', '--enable-gold'],
         {
-            'powerpc': ['--disable-multilib', '--disable-soft-float', '--with-float=hard'],
-            'arm': ['--with-arch-directory=arm', '--with-arch=armv7-a', '--with-fpu=vfpv3-d16', '--with-float=hard', '--with-mode=thumb'],
-            'mipsel': ['--with-endian=little', '--with-arch-directory=mipsel', '--with-arch-32=mips2', '--with-tune-32=mips32r2', '--with-fp-32=xx',],
-            'mips': ['--with-arch-directory=mips', '--with-arch-32=mips2', '--with-tune-32=mips32r2', '--with-fp-32=xx',],
+            'powerpc': (['--disable-multilib', '--disable-soft-float', '--with-float=hard'], {}),
+            'arm': (['--with-arch-directory=arm', '--with-arch=armv7-a', '--with-fpu=vfpv3-d16', '--with-float=hard', '--with-mode=thumb'], {}),
+            'mipsel': (['--with-endian=little', '--with-arch-directory=mipsel', '--with-arch-32=mips2', '--with-tune-32=mips32r2', '--with-fp-32=xx', '--disable-libitm', '--disable-libsanitizer', '--disable-libquadmath', ], {'CFLAGS_FOR_TARGET':'-O1 -g', 'CXXFLAGS_FOR_TARGET': '-O1 -g'}),
+            'mips': (['--with-arch-directory=mips', '--with-arch-32=mips2', '--with-tune-32=mips32r2', '--with-fp-32=xx', '--disable-libitm', '--disable-libsanitizer', '--disable-libquadmath', ], {'CFLAGS_FOR_TARGET':'-O1 -g', 'CXXFLAGS_FOR_TARGET': '-O1 -g'}),
         },
         ['make', '-j', '16'],
         ['make', 'install-strip'],
@@ -266,13 +317,15 @@ packages = [
             ('http://llvm.org/releases/3.4/compiler-rt-3.4.src.tar.gz', 'llvm-3.4.2.src/projects', 'compiler-rt'),
         ],
         [
-            ('llvm-3.4.patch', 1)
+            ('llvm-3.4.patch', 1),
+            ('clang-freebsd-crosscompile.diff', 1),
+            ('llvm-3.4-execute.diff', 1)
         ],
         True,
         [],
         ['cmake', '%(src_path)s', '-G', '%(build_2012)s', '-DCMAKE_INSTALL_PREFIX=%(install_path)s/lib/llvm-3.4/',
                   '-DCMAKE_BUILD_TYPE=Release', '-DBUILD_SHARED_LIBS=0', '-DDEFAULT_SYSROOT=%(sysroot_path)s',
-                  '-DLLVM_DEFAULT_TARGET_TRIPLE=x86_64-%(target_abi)s', '-DLLVM_TARGET_ARCH=x86_64',
+                  '-DLLVM_DEFAULT_TARGET_TRIPLE=%(target_arch)s-%(target_abi)s', '-DLLVM_TARGET_ARCH=%(target_arch)s',
                   '-DGCC_INSTALL_PREFIX=%(install_path)s/', '-DPYTHON_EXECUTABLE=%(install_path)s/bin/%(python)s',
                   '-DLLVM_INSTALL_TOOLCHAIN_ONLY=1',],
         {},
@@ -288,13 +341,15 @@ packages = [
             ('http://llvm.org/releases/3.5.2/compiler-rt-3.5.2.src.tar.xz', 'llvm-3.5.2.src/projects', 'compiler-rt'),
         ],
         [
-            ('llvm-3.5.patch', 1)
+            ('llvm-3.5.patch', 1),
+            ('clang-freebsd-crosscompile.diff', 1),
+            ('llvm-3.4-execute.diff', 1)
         ],
         True,
         [],
         ['cmake', '%(src_path)s', '-G', '%(build_2012)s', '-DCMAKE_INSTALL_PREFIX=%(install_path)s/lib/llvm-3.5/',
                   '-DCMAKE_BUILD_TYPE=Release', '-DBUILD_SHARED_LIBS=0', '-DDEFAULT_SYSROOT=%(sysroot_path)s',
-                  '-DLLVM_DEFAULT_TARGET_TRIPLE=x86_64-%(target_abi)s', '-DLLVM_TARGET_ARCH=x86_64',
+                  '-DLLVM_DEFAULT_TARGET_TRIPLE=%(target_arch)s-%(target_abi)s', '-DLLVM_TARGET_ARCH=%(target_arch)s',
                   '-DGCC_INSTALL_PREFIX=%(install_path)s/', '-DPYTHON_EXECUTABLE=%(install_path)s/bin/%(python)s',
                   '-DLLVM_INSTALL_TOOLCHAIN_ONLY=1',],
         {},
@@ -310,13 +365,15 @@ packages = [
             ('http://llvm.org/releases/3.6.2/compiler-rt-3.6.2.src.tar.xz', 'llvm-3.6.2.src/projects', 'compiler-rt'),
         ],
         [
-            ('llvm-3.6.patch', 1)
+            ('llvm-3.6.patch', 1),
+            ('clang-freebsd-crosscompile.diff', 1),
+            ('llvm-3.6-execute.diff', 1)
         ],
         True,
         [],
         ['cmake', '%(src_path)s', '-G', '%(build_2012)s', '-DCMAKE_INSTALL_PREFIX=%(install_path)s/lib/llvm-3.6/',
                   '-DCMAKE_BUILD_TYPE=Release', '-DBUILD_SHARED_LIBS=0', '-DDEFAULT_SYSROOT=%(sysroot_path)s',
-                  '-DLLVM_DEFAULT_TARGET_TRIPLE=x86_64-%(target_abi)s', '-DLLVM_TARGET_ARCH=x86_64',
+                  '-DLLVM_DEFAULT_TARGET_TRIPLE=%(target_arch)s-%(target_abi)s', '-DLLVM_TARGET_ARCH=%(target_arch)s',
                   '-DGCC_INSTALL_PREFIX=%(install_path)s/', '-DPYTHON_EXECUTABLE=%(install_path)s/bin/%(python)s',
                   '-DLLVM_INSTALL_TOOLCHAIN_ONLY=1',],
         {},
@@ -332,13 +389,15 @@ packages = [
             ('http://llvm.org/releases/3.7.1/compiler-rt-3.7.1.src.tar.xz', 'llvm-3.7.1.src/projects', 'compiler-rt'),
         ],
         [
-            ('llvm-3.7.patch', 1)
+            ('llvm-3.7.patch', 1),
+            ('clang-freebsd-crosscompile.diff', 1),
+            ('llvm-3.6-execute.diff', 1)
         ],
         True,
         [],
         ['cmake', '%(src_path)s', '-G', '%(build_2013)s', '-DCMAKE_INSTALL_PREFIX=%(install_path)s/lib/llvm-3.7/',
                   '-DCMAKE_BUILD_TYPE=Release', '-DBUILD_SHARED_LIBS=0', '-DDEFAULT_SYSROOT=%(sysroot_path)s',
-                  '-DLLVM_DEFAULT_TARGET_TRIPLE=x86_64-%(target_abi)s', '-DLLVM_TARGET_ARCH=x86_64',
+                  '-DLLVM_DEFAULT_TARGET_TRIPLE=%(target_arch)s-%(target_abi)s', '-DLLVM_TARGET_ARCH=%(target_arch)s',
                   '-DGCC_INSTALL_PREFIX=%(install_path)s/', '-DPYTHON_EXECUTABLE=%(install_path)s/bin/%(python)s',
                   '-DLLVM_INSTALL_TOOLCHAIN_ONLY=1',],
         {},
@@ -360,7 +419,7 @@ packages = [
         [],
         ['cmake', '%(src_path)s', '-G', '%(build_2013)s', '-DCMAKE_INSTALL_PREFIX=%(install_path)s/lib/llvm-3.8/',
                   '-DCMAKE_BUILD_TYPE=Release', '-DBUILD_SHARED_LIBS=0', '-DDEFAULT_SYSROOT=%(sysroot_path)s',
-                  '-DLLVM_DEFAULT_TARGET_TRIPLE=x86_64-%(target_abi)s', '-DLLVM_TARGET_ARCH=x86_64',
+                  '-DLLVM_DEFAULT_TARGET_TRIPLE=%(target_arch)s-%(target_abi)s', '-DLLVM_TARGET_ARCH=%(target_arch)s',
                   '-DGCC_INSTALL_PREFIX=%(install_path)s/', '-DPYTHON_EXECUTABLE=%(install_path)s/bin/%(python)s',
                   '-DLLVM_INSTALL_TOOLCHAIN_ONLY=1',],
         {},
@@ -376,7 +435,7 @@ packages = [
         [],
         True,
         [],
-        ['bash', '%(src_path)s/configure', '--build=%(host)s', '--target=x86_64-%(target_abi)s', '--prefix=%(install_path)s',
+        ['bash', '%(src_path)s/configure', '--build=%(host)s', '--target=%(target_arch)s-%(target_abi)s', '--prefix=%(install_path)s',
                  '--with-gmp=%(install_path)s', '--with-mpfr=%(install_path)s', '--with-mpc=%(install_path)s',
                  '--with-python=%(install_path)s/', '--enable-targets=all'],
         {},
@@ -392,7 +451,7 @@ def hash(lst):
     m.update(str(lst).encode())
     return m.hexdigest()
 
-    
+
 def up_to_date(sig, target_platform, pkg, step, arch, directory):
     if directory and not os.path.isdir(directory):
         return False
@@ -481,14 +540,20 @@ def patch_pkg(src_root_dir, pkg, patch, patch_level):
             logfile.write(out)
 
 
-def run(sig, target_platform, pkg, arch, command, bld_dir, step, config):
+def run(sig, target_platform, pkg, arch, command, env, bld_dir, step, config):
     sig = sig + [command]
+    v = global_env.copy()
+    for k, i in env.items():
+        if k in v:
+            v[k] = v[k] + ' ' + env[k]
+        else:
+            v[k] = env[k]
     if not up_to_date(sig, target_platform, pkg, step, arch, bld_dir):
         make_dir(bld_dir)
         print('running %s step...' % step)
         with open('bld/%s.log'%step, 'w') as logfile:
             run_command = [i % config for i in command]
-            p = subprocess.Popen(run_command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=bld_dir, env=env)
+            p = subprocess.Popen(run_command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=bld_dir, env=v)
             line=p.stdout.readline()
             while line:
                 if not isinstance(line, str):
@@ -509,67 +574,76 @@ def run(sig, target_platform, pkg, arch, command, bld_dir, step, config):
     return sig
 
 
-def build(pkg, target_platform, src_dir, bld_dir, arch, abi, configure_cmd, build_cmd, install_cmd, clean_cmd, sig):
+def build(pkg, target_platform, src_dir, bld_dir, arch, abi, configure_cmd, configure_env, build_cmd, install_cmd, clean_cmd, sig):
     if arch:
         config['arch'] = arch
         config['target'] = abi
     config['src_path'] = os.path.relpath(src_dir, bld_dir).replace('\\', '/') #'../../../%s' % src_dir
     make_dir(bld_root_dir)
     if configure_cmd:
-        sig = run(sig, target_platform, pkg, arch, configure_cmd, bld_dir, 'configure', config)
+        sig = run(sig, target_platform, pkg, arch, configure_cmd, configure_env, bld_dir, 'configure', config)
     if build_cmd:
-        sig = run(sig, target_platform, pkg, arch, build_cmd, bld_dir, 'build', config)
+        sig = run(sig, target_platform, pkg, arch, build_cmd, {}, bld_dir, 'build', config)
     if install_cmd:
-        sig = run(sig, target_platform, pkg, arch, install_cmd, bld_dir, 'install', config)
+        sig = run(sig, target_platform, pkg, arch, install_cmd, {}, bld_dir, 'install', config)
     if clean_cmd:
-        sig = run(sig, target_platform, pkg, arch, clean_cmd, bld_dir, 'clean', config)
+        sig = run(sig, target_platform, pkg, arch, clean_cmd, {}, bld_dir, 'clean', config)
 
 
 if __name__ == '__main__':
-    for target_platform, target_abi in target_platforms:
+    make_dir('bld')
+    for target_path in target_paths:
+        sysroot = '%s/sysroot' % target_path
+        target_platform, target_abi, target_arch, target_multiarch, all_archs = get_supported_archs(sysroot)
+
         config = {
-            'install_path': os.path.abspath('pc-%s' % target_platform).replace('\\', '/'),
-            'sysroot_path': os.path.abspath('pc-%s/sysroot' % target_platform).replace('\\', '/'),
+            'install_path': os.path.abspath(target_path).replace('\\', '/'),
+            'sysroot_path': os.path.abspath(sysroot).replace('\\', '/'),
             'host':         get_gcc_host(),
             'os':           sys.platform,
             'target_abi':   target_abi,
+            'target_arch':  target_arch,
+            'multiarch':    '--enable-multiarch' if target_multiarch else '--disable-multiarch',
             'python':       'python.exe' if sys.platform == 'win32' else 'python',
             'gcc':          gcc,
             'gxx':          gxx,
             'build_2012':  'Visual Studio 11 2012 Win64'if sys.platform == 'win32' else 'Unix Makefiles',
             'build_2013':  'Visual Studio 12 2013 Win64'if sys.platform == 'win32' else 'Unix Makefiles',
         }
-        all_archs = get_supported_archs(target_platform, config['sysroot_path'])
+
         print('%s - %s' % (target_platform, all_archs))
         do_build = sys.argv[1:]
-        make_dir('cache/%s' % target_platform)
-        make_dir('src/%s' % target_platform)
-        make_dir('bld/%s' % target_platform)
+        make_dir('cache/%s' % target_path)
+        make_dir('src/%s' % target_path)
+        make_dir('bld/%s' % target_path)
 
-        for package_name, package_urls, patch_list, is_host_build, skip_archs, configure_cmd, configure_extra_cmd, build_cmd, install_cmd, clean_cmd in packages:
+        for package_name, package_urls, patch_list, is_host_build, skip_archs, configure_cmd, configure_extra, build_cmd, install_cmd, clean_cmd in packages:
             if do_build and package_name not in do_build:
                 continue
 
-            src_root_dir = 'src/%s/%s' % (target_platform, package_name)
-            archs = [(None, None)] if is_host_build else all_archs
+            src_root_dir = 'src/%s/%s' % (target_path, package_name)
+            archs = [(None, None, [], {})] if is_host_build else all_archs
 
-            for arch, abi in archs:
+            for arch, abi, arch_config, arch_env in archs:
                 if arch in skip_archs:
                     continue
-                configure_arch_cmd = configure_extra_cmd.get(arch, [])
+                configure_extra_cmd, configure_extra_env = configure_extra.get(arch, ([], {}))
+                extra_env = {}
+                extra_env.update(configure_extra_env)
+                extra_env.update(arch_env)
                 sig = [['wget'] + package_urls, ['patch'] + patch_list,
-                       configure_cmd + configure_arch_cmd,
+                       configure_cmd + configure_extra_cmd + arch_config,
                        build_cmd,
                        install_cmd]
                 if arch:
-                    bld_root_dir = os.path.abspath('bld/%s/%s-%s' % (target_platform, package_name, arch))
+                    bld_root_dir = os.path.abspath('bld/%s/%s-%s' % (target_path, package_name, arch))
                 else:
-                    bld_root_dir = os.path.abspath('bld/%s/%s' % (target_platform, package_name))
-                done  = up_to_date(sig, target_platform, package_name, 'install', arch, None)
+                    bld_root_dir = os.path.abspath('bld/%s/%s' % (target_path, package_name))
+                done  = up_to_date(sig, target_path, package_name, 'install', arch, None)
                 if not done:
                     print('=> building %s%s' % (package_name, ' for %s'%arch if arch else ''))
                     sig = [['wget'] + package_urls, ['patch'] + patch_list]
-                    done = up_to_date(sig, target_platform, package_name, 'unpack', None, src_root_dir)
+                    done = up_to_date(sig, target_path, package_name, 'unpack', None, src_root_dir)
                     if not done:
                         del_dir(src_root_dir)
                         del_dir(bld_root_dir)
@@ -577,18 +651,16 @@ if __name__ == '__main__':
                         if package_urls:
                             for url, dest, rename in package_urls:
                                 data = download_pkg(url)
-                                root_dir_pkg = extract_pkg(data, target_platform, dest, rename)
+                                root_dir_pkg = extract_pkg(data, target_path, dest, rename)
                                 root_dir = root_dir or root_dir_pkg
-                            os.rename('src/%s' % root_dir, 'src/%s/%s' % (target_platform, package_name))
+                            os.rename('src/%s' % root_dir, 'src/%s/%s' % (target_path, package_name))
                             for patch, patch_level in patch_list:
                                 patch_pkg(src_root_dir, package_name, patch, patch_level)
                         else:
                             make_dir(src_root_dir)
-                        set_up_to_date(sig, target_platform, package_name, 'unpack', None)
-                    build(package_name, target_platform, src_root_dir, bld_root_dir, arch, abi,
-                          configure_cmd + configure_extra_cmd.get(arch, []), build_cmd, install_cmd, clean_cmd,
+                        set_up_to_date(sig, target_path, package_name, 'unpack', None)
+                    build(package_name, target_path, src_root_dir, bld_root_dir, arch, abi,
+                          configure_cmd + configure_extra_cmd + arch_config, extra_env, build_cmd, install_cmd, clean_cmd,
                           sig)
                     #del_dir(bld_root_dir)
             #del_dir(src_root_dir)
-
-

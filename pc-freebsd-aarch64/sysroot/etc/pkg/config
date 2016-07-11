@@ -1,0 +1,3 @@
+ARCHITECTURE=('arm64', 'aarch64', False)
+MIRROR='http://ftp.freebsd.org/pub/FreeBSD/releases/'
+DIST='11.0-BETA1'

@@ -1,0 +1,61 @@
+diff -Naur clang-3.6.src/include/llvm/Support/FileSystem.h clang-3.6/include/llvm/Support/FileSystem.h
+--- clang-3.6.src/include/llvm/Support/FileSystem.h	2014-12-16 04:10:29.000000000 +0100
++++ clang-3.6/include/llvm/Support/FileSystem.h	2016-07-09 22:09:33.367739600 +0200
+@@ -374,9 +374,7 @@
+ ///
+ /// @param Path Input path.
+ /// @returns True if we can execute it, false otherwise.
+-inline bool can_execute(const Twine &Path) {
+-  return !access(Path, AccessMode::Execute);
+-}
++bool can_execute(const Twine &Path);
+ 
+ /// @brief Can we write this file?
+ ///
+diff -Naur clang-3.6.src/lib/Support/Unix/Path.inc clang-3.6/lib/Support/Unix/Path.inc
+--- clang-3.6.src/lib/Support/Unix/Path.inc	2014-12-29 21:59:02.000000000 +0100
++++ clang-3.6/lib/Support/Unix/Path.inc	2016-07-09 22:07:35.253036400 +0200
+@@ -324,6 +324,10 @@
+   return std::error_code();
+ }
+ 
++bool can_execute(const Twine &Path) {
++  return !access(Path, AccessMode::Execute);
++}
++
+ bool equivalent(file_status A, file_status B) {
+   assert(status_known(A) && status_known(B));
+   return A.fs_st_dev == B.fs_st_dev &&
+diff -Naur clang-3.6.src/lib/Support/Windows/Path.inc clang-3.6/lib/Support/Windows/Path.inc
+--- clang-3.6.src/lib/Support/Windows/Path.inc	2014-12-16 04:10:29.000000000 +0100
++++ clang-3.6/lib/Support/Windows/Path.inc	2016-07-09 22:06:56.381259400 +0200
+@@ -304,6 +304,11 @@
+   return std::error_code();
+ }
+ 
++bool can_execute(const Twine &Path) {
++  return !access(Path, AccessMode::Execute) ||
++         !access(Path + ".exe", AccessMode::Execute);
++}
++
+ bool equivalent(file_status A, file_status B) {
+   assert(status_known(A) && status_known(B));
+   return A.FileIndexHigh      == B.FileIndexHigh &&
+diff -Naur clang-3.6.src/lib/Support/Windows/Program.inc clang-3.6/lib/Support/Windows/Program.inc
+--- clang-3.6.src/lib/Support/Windows/Program.inc	2015-01-14 12:23:27.000000000 +0100
++++ clang-3.6/lib/Support/Windows/Program.inc	2016-07-09 22:08:44.273753200 +0200
+@@ -250,6 +250,14 @@
+     return false;
+   }
+ 
++  // can_execute may succeed by looking at Program + ".exe". CreateProcessW
++  // will implicitly add the .exe if we provide a command line without an
++  // executable path, but since we use an explicit executable, we have to add
++  // ".exe" ourselves.
++  SmallString<64> ProgramStorage;
++  if (!sys::fs::exists(Program))
++    Program = Twine(Program + ".exe").toStringRef(ProgramStorage);
++
+   // Windows wants a command line, not an array of args, to pass to the new
+   // process.  We have to concatenate them all, while quoting the args that
+   // have embedded spaces (or are empty).

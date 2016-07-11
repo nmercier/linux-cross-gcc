@@ -92,24 +92,25 @@ def base():
         ('lib32.txz', False),
      ]:
         base_url = config['MIRROR'] + config['ARCHITECTURE'][0] + '/' + config['ARCHITECTURE'][1] + '/' + config['DIST'] + '/' + pkg
-        try:
-            data = download(base_url)
-        except Exception as e:
-            if not optional:
-                raise e
-        else:
-            tar = tarfile.open(fileobj=io.BytesIO(data))
-            for tarinfo in tar:
-                tarinfo = copy.copy(tarinfo)
-                tarinfo.mode = 0o700
-                try:
-                    tar.extract(tarinfo, '.', set_attrs=False)
-                except ValueError as e:
-                    print(e)
-                except OSError as e:
-                    print(tarinfo.name)
-                    os.unlink(tarinfo.name)
-                    tar.extract(tarinfo, '.', set_attrs=False)
+        if required or config['ARCHITECTURE'][2]:
+            try:
+                data = download(base_url)
+            except Exception as e:
+                if not optional:
+                    raise e
+            else:
+                tar = tarfile.open(fileobj=io.BytesIO(data))
+                for tarinfo in tar:
+                    tarinfo = copy.copy(tarinfo)
+                    tarinfo.mode = 0o700
+                    try:
+                        tar.extract(tarinfo, '.', set_attrs=False)
+                    except ValueError as e:
+                        print(e)
+                    except OSError as e:
+                        print(tarinfo.name)
+                        os.unlink(tarinfo.name)
+                        tar.extract(tarinfo, '.', set_attrs=False)
 
     def fix_links(dir):
         for l in os.listdir(dir):
