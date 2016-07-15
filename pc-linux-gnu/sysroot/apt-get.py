@@ -502,7 +502,7 @@ def install(package_list):
     download_packages = filter_packages_to_download(new_packages + [p for p, __ in updated_packages])
     download_size = float(sum([int(p.Size) for p in download_packages]))
     total_package_size = float(sum([int(p.Size) for p in new_packages]))
-    total_package_size += float(sum([int(p.Size) for p in new_packages]))
+    total_package_size += float(sum([int(p.Size) for p,_ in updated_packages]))
     install_size = float(sum([int(getattr(p, 'Installed-Size')) for p in new_packages]))
     install_size += float(sum([int(getattr(p, 'Installed-Size')) for p,__ in updated_packages]))
     install_size -= float(sum([int(getattr(p, 'Installed-Size')) for __,p in updated_packages]))

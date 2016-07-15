@@ -1,6 +1,6 @@
---- clang-3.5.src/tools/clang/lib/Driver/ToolChains.cpp	2016-07-08 21:41:35.179984600 +0200
-+++ clang-3.5/tools/clang/lib/Driver/ToolChains.cpp	2016-07-08 21:43:16.958753800 +0200
-@@ -1964,6 +1964,20 @@
+--- clang-3.4.src/tools/clang/lib/Driver/ToolChains.cpp	2016-07-08 21:41:35.179984600 +0200
++++ clang-3.4/tools/clang/lib/Driver/ToolChains.cpp	2016-07-08 21:43:16.958753800 +0200
+@@ -1964,6 +1964,19 @@
  FreeBSD::FreeBSD(const Driver &D, const llvm::Triple& Triple, const ArgList &Args)
    : Generic_ELF(D, Triple, Args) {
  
@@ -12,7 +12,6 @@
 +  // targeting x86_64, but it is a bi-arch GCC installation, it can also be
 +  // used to target i386.
 +  // FIXME: This seems unlikely to be Linux-specific.
-+  GCCInstallation.init(D, Triple, Args);
 +  ToolChain::path_list &PPaths = getProgramPaths();
 +  PPaths.push_back(Twine(GCCInstallation.getParentLibPath() + "/../" +
 +                         GCCInstallation.getTriple().str() + "/bin").str());

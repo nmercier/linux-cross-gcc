@@ -57,7 +57,7 @@ def get_arch(file):
         'PowerPC':                          ('powerpc', 'ppcel'),
         'Intel 80386':                      ('', 'i386'),
         'Advanced Micro Devices X86-64':    ('', 'x86_64'),
-        'AArch64':                          ('aarch64', 'aarch64el'),
+        'AArch64':                          ('aarch64_be', 'aarch64'),
         'ARM':                              ('arm', 'armel'),
         'MIPS R3000':                       ('mips', 'mipsel'),
     }
@@ -232,7 +232,7 @@ packages = [
             ('gcc-4.9-libgcclink.diff', 1),
         ],
         False,
-        ['aarch64'],
+        [re.compile('aarch64-.*')],
         ['bash', '%(src_path)s/configure', '--build=%(host)s', '--target=%(target)s', '--prefix=%(install_path)s',
                  '--enable-static', '--enable-shared', '%(multiarch)s', '--disable-nls', '--disable-sjlj',
                  '--enable-objc-gc', '--enable-languages=c,c++,objc,obj-c++', '--disable-multilib',
@@ -240,6 +240,7 @@ packages = [
                  '--with-gmp=%(install_path)s', '--with-mpfr=%(install_path)s', '--with-mpc=%(install_path)s',
                  '--program-prefix=%(target)s-', '--program-suffix=-4.9', '--enable-gold'],
         {
+            'aarch64': (['--enable-fix-cortex-a53-835769', '--enable-fix-cortex-a53-843419'], {}),
             'powerpc': (['--disable-multilib', '--disable-soft-float', '--with-float=hard'], {}),
             'arm': (['--with-arch-directory=arm', '--with-arch=armv7-a', '--with-fpu=vfpv3-d16', '--with-float=hard', '--with-mode=thumb'], {}),
             'mipsel': (['--with-endian=little', '--with-arch-directory=mipsel', '--with-arch-32=mips2', '--with-tune-32=mips32r2', '--with-fp-32=xx',], {'CFLAGS_FOR_TARGET':'-O1 -g', 'CXXFLAGS_FOR_TARGET': '-O1 -g'}),
@@ -262,7 +263,7 @@ packages = [
             ('gcc-5-responsefile.diff', 1),
         ],
         False,
-        [],
+        [re.compile('aarch64-.*-freebsd.*')],
         ['bash', '%(src_path)s/configure', '--build=%(host)s', '--target=%(target)s', '--prefix=%(install_path)s',
                  '--enable-shared', '%(multiarch)s', '--disable-nls', '--disable-sjlj',
                  '--enable-objc-gc', '--enable-languages=c,c++,objc,obj-c++',
@@ -270,6 +271,7 @@ packages = [
                  '--with-gmp=%(install_path)s', '--with-mpfr=%(install_path)s', '--with-mpc=%(install_path)s',
                  '--program-prefix=%(target)s-', '--program-suffix=-5', '--enable-gold'],
         {
+            'aarch64': (['--enable-fix-cortex-a53-835769', '--enable-fix-cortex-a53-843419'], {}),
             'powerpc': (['--disable-multilib', '--disable-soft-float', '--with-float=hard'], {}),
             'arm': (['--with-arch-directory=arm', '--with-arch=armv7-a', '--with-fpu=vfpv3-d16', '--with-float=hard', '--with-mode=thumb'], {}),
             'mipsel': (['--with-endian=little', '--with-arch-directory=mipsel', '--with-arch-32=mips32r2', '--with-fp-32=xx', '--disable-libitm', '--disable-libsanitizer', '--disable-libquadmath', ], {'CFLAGS_FOR_TARGET':'-O0 -g', 'CXXFLAGS_FOR_TARGET': '-O0 -g'}),
@@ -292,7 +294,7 @@ packages = [
             ('gcc-5-responsefile.diff', 1),
         ],
         False,
-        [],
+        [re.compile('aarch64-.*-freebsd.*')],
         ['bash', '%(src_path)s/configure', '--build=%(host)s', '--target=%(target)s', '--prefix=%(install_path)s',
                  '--enable-shared', '%(multiarch)s', '--disable-nls', '--disable-sjlj',
                  '--enable-objc-gc', '--enable-languages=c,c++,objc,obj-c++',
@@ -300,6 +302,7 @@ packages = [
                  '--with-gmp=%(install_path)s', '--with-mpfr=%(install_path)s', '--with-mpc=%(install_path)s',
                  '--program-prefix=%(target)s-', '--program-suffix=-6', '--enable-gold'],
         {
+            'aarch64': (['--enable-fix-cortex-a53-835769', '--enable-fix-cortex-a53-843419'], {}),
             'powerpc': (['--disable-multilib', '--disable-soft-float', '--with-float=hard'], {}),
             'arm': (['--with-arch-directory=arm', '--with-arch=armv7-a', '--with-fpu=vfpv3-d16', '--with-float=hard', '--with-mode=thumb'], {}),
             'mipsel': (['--with-endian=little', '--with-arch-directory=mipsel', '--with-arch-32=mips2', '--with-tune-32=mips32r2', '--with-fp-32=xx', '--disable-libitm', '--disable-libsanitizer', '--disable-libquadmath', ], {'CFLAGS_FOR_TARGET':'-O1 -g', 'CXXFLAGS_FOR_TARGET': '-O1 -g'}),
@@ -318,7 +321,7 @@ packages = [
         ],
         [
             ('llvm-3.4.patch', 1),
-            ('clang-freebsd-crosscompile.diff', 1),
+            ('clang-3.4-freebsd-crosscompile.diff', 1),
             ('llvm-3.4-execute.diff', 1)
         ],
         True,
@@ -625,42 +628,46 @@ if __name__ == '__main__':
             archs = [(None, None, [], {})] if is_host_build else all_archs
 
             for arch, abi, arch_config, arch_env in archs:
-                if arch in skip_archs:
-                    continue
-                configure_extra_cmd, configure_extra_env = configure_extra.get(arch, ([], {}))
-                extra_env = {}
-                extra_env.update(configure_extra_env)
-                extra_env.update(arch_env)
-                sig = [['wget'] + package_urls, ['patch'] + patch_list,
-                       configure_cmd + configure_extra_cmd + arch_config,
-                       build_cmd,
-                       install_cmd]
-                if arch:
-                    bld_root_dir = os.path.abspath('bld/%s/%s-%s' % (target_path, package_name, arch))
+                for p in skip_archs:
+                    if p.match(arch):
+                        break
+                    if p.match(abi):
+                        break
                 else:
-                    bld_root_dir = os.path.abspath('bld/%s/%s' % (target_path, package_name))
-                done  = up_to_date(sig, target_path, package_name, 'install', arch, None)
-                if not done:
-                    print('=> building %s%s' % (package_name, ' for %s'%arch if arch else ''))
-                    sig = [['wget'] + package_urls, ['patch'] + patch_list]
-                    done = up_to_date(sig, target_path, package_name, 'unpack', None, src_root_dir)
+                    configure_extra_cmd, configure_extra_env = configure_extra.get(arch, ([], {}))
+                    extra_env = {}
+                    extra_env.update(configure_extra_env)
+                    extra_env.update(arch_env)
+                    sig = [['wget'] + package_urls, ['patch'] + patch_list,
+                           configure_cmd + configure_extra_cmd + arch_config,
+                           build_cmd,
+                           install_cmd]
+                    if arch:
+                        bld_root_dir = os.path.abspath('bld/%s/%s-%s' % (target_path, package_name, arch))
+                    else:
+                        bld_root_dir = os.path.abspath('bld/%s/%s' % (target_path, package_name))
+                    done  = up_to_date(sig, target_path, package_name, 'install', arch, None)
                     if not done:
-                        del_dir(src_root_dir)
-                        del_dir(bld_root_dir)
-                        root_dir = None
-                        if package_urls:
-                            for url, dest, rename in package_urls:
-                                data = download_pkg(url)
-                                root_dir_pkg = extract_pkg(data, target_path, dest, rename)
-                                root_dir = root_dir or root_dir_pkg
-                            os.rename('src/%s' % root_dir, 'src/%s/%s' % (target_path, package_name))
-                            for patch, patch_level in patch_list:
-                                patch_pkg(src_root_dir, package_name, patch, patch_level)
-                        else:
-                            make_dir(src_root_dir)
-                        set_up_to_date(sig, target_path, package_name, 'unpack', None)
-                    build(package_name, target_path, src_root_dir, bld_root_dir, arch, abi,
-                          configure_cmd + configure_extra_cmd + arch_config, extra_env, build_cmd, install_cmd, clean_cmd,
-                          sig)
-                    #del_dir(bld_root_dir)
+                        print('=> building %s%s' % (package_name, ' for %s'%arch if arch else ''))
+                        sig = [['wget'] + package_urls, ['patch'] + patch_list]
+                        done = up_to_date(sig, target_path, package_name, 'unpack', None, src_root_dir)
+                        if not done:
+                            del_dir(src_root_dir)
+                            del_dir(bld_root_dir)
+                            root_dir = None
+                            if package_urls:
+                                for url, dest, rename in package_urls:
+                                    data = download_pkg(url)
+                                    root_dir_pkg = extract_pkg(data, target_path, dest, rename)
+                                    root_dir = root_dir or root_dir_pkg
+                                os.rename('src/%s' % root_dir, 'src/%s/%s' % (target_path, package_name))
+                                for patch, patch_level in patch_list:
+                                    patch_pkg(src_root_dir, package_name, patch, patch_level)
+                            else:
+                                make_dir(src_root_dir)
+                            set_up_to_date(sig, target_path, package_name, 'unpack', None)
+                        build(package_name, target_path, src_root_dir, bld_root_dir, arch, abi,
+                              configure_cmd + configure_extra_cmd + arch_config, extra_env, build_cmd, install_cmd, clean_cmd,
+                              sig)
+                        #del_dir(bld_root_dir)
             #del_dir(src_root_dir)

@@ -1,3 +1,4 @@
 ARCHITECTURE=('amd64', 'amd64', False)
 MIRROR='http://ftp.freebsd.org/pub/FreeBSD/releases/'
+PKG_MIRROR='http://pkg0.bme.freebsd.org/freebsd:10:x86:64/latest/'
 DIST='10.3-RELEASE'
