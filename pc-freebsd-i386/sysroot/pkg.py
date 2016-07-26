@@ -260,7 +260,17 @@ def do_install(database, package_list):
                     try: os.makedirs(member.name)
                     except OSError: pass
                 elif member.islnk() or member.issym():
-                    links.append(member)
+                    if sys.platform == 'win32':
+                        links.append(member)
+                    else:
+                        if member.linkname[0] == '/':
+                            member.linkname = os.path.relpath('.', os.path.split(member.name)[0]) + member.linkname
+                            print(member.name, '  ->  ', member.linkname)
+                        try:
+                            os.symlink(member.linkname, member.name)
+                        except OSError:
+                            os.unlink(member.name)
+                            os.symlink(member.linkname, member.name)
                 elif member.isdev():
                     print('Dev node: %s' % member.name)
         links = set(links)
@@ -525,7 +535,13 @@ def base():
                     tarinfo = copy.copy(tarinfo)
                     tarinfo.mode = 0o700
                     try:
-                        tar.extract(tarinfo, '.', set_attrs=False)
+                        if tarinfo.islnk() or tarinfo.issym():
+                            if tarinfo.linkname[0] == '/':
+                                tarinfo.linkname = os.path.relpath('.', os.path.split(tarinfo.name)[0]) + tarinfo.linkname
+                                print(tarinfo.name, '  ->  ', tarinfo.linkname)
+                            os.symlink(tarinfo.linkname, tarinfo.name)
+                        else:
+                            tar.extract(tarinfo, '.', set_attrs=False)
                     except ValueError as e:
                         print(e)
                     except OSError as e:

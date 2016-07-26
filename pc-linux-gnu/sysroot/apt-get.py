@@ -226,7 +226,7 @@ def load_database():
     try:
         with open(installed_package_list_file, 'rb') as package_file:
             installed_packages = pickle.load(package_file)
-    except Exception:
+    except Exception as e:
         installed_packages = {}
         for architectures,_,_,_ in config['MIRRORS']:
             for arch in architectures:
@@ -330,7 +330,16 @@ def do_install(package_list, directory_links):
                                 file.write(tar.extractfile(info).read())
                             package.installed_files.append(filename)
                         elif info.islnk() or info.issym():
-                            links.append((package, info.name, info.linkname))
+                            if sys.platform == 'win32':
+                                links.append((package, info.name, info.linkname))
+                            else:
+                                if info.linkname[0] == '/':
+                                    info.linkname = os.path.relpath('.', os.path.split(info.name)[0]) + info.linkname
+                                try:
+                                    os.symlink(info.linkname, info.name)
+                                except FileExistsError:
+                                    os.unlink(info.name)
+                                    os.symlink(info.linkname, info.name)
                         else:
                             print (info.name)
     while links:
@@ -365,6 +374,12 @@ def do_install(package_list, directory_links):
 def do_uninstall(package_list):
     pass
 
+
+def info():
+    available_packages, installed_packages, links = load_database()
+    for package_arch, packages in installed_packages.items():
+        for package_name, package in packages.items():
+            print(package_name, ':', package_arch)
 
 def update():
     ensure_directories_exist()
@@ -562,6 +577,10 @@ if __name__ == '__main__':
             if packages:
                 raise Exception(desc)
             upgrade()
+        elif command == 'info':
+            if packages:
+                raise Exception(desc)
+            info()
         elif command == 'install':
             if not packages:
                 raise Exception(desc)

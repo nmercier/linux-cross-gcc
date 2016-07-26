@@ -37,10 +37,10 @@ elif sys.platform == 'win32':
     gcc = 'gcc'
     gxx = 'g++'
 else:
-    gcc=''
-    gxx=''
-    #global_env['CC'] = gcc
-    #global_env['CXX'] = gxx
+    gcc='clang -fbracket-depth=1024'
+    gxx='clang++ -fbracket-depth=1024'
+    global_env['CC'] = gcc
+    global_env['CXX'] = gxx
 global_env['CFLAGS']   = ' '.join(platform_flags.get(sys.platform, []) + [global_env.get('CFLAGS', '')])
 global_env['CXXFLAGS'] = ' '.join(platform_flags.get(sys.platform, []) + [global_env.get('CXXFLAGS', '')])
 global_env['LDFLAGS']  = ' '.join(platform_flags.get(sys.platform, []) + [global_env.get('LDFLAGS', '')])
@@ -118,7 +118,7 @@ def get_supported_archs(sysroot):
 
 
 def get_gcc_host():
-    cmd = [gcc, '-v']
+    cmd = gcc.split() + ['-v']
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     target = None
     for line in p.stdout.readlines():
@@ -212,7 +212,7 @@ packages = [
         False,
         [],
         ['bash', '%(src_path)s/configure', '--build=%(host)s', '--target=%(target)s', '--prefix=%(install_path)s',
-                 '--enable-static', '--disable-shared', '--enable-gold', '--with-sysroot=%(sysroot_path)s',
+                 '--enable-static', '--disable-shared', '--enable-gold', '--with-sysroot=%(sysroot_path)s', '--disable-werror',
                  '%(multiarch)s', '--disable-multilib', '--disable-nls', '--enable-lto', '--enable-objc-gc',
                  '--with-gmp=%(install_path)s', '--with-mpfr=%(install_path)s', '--with-mpc=%(install_path)s'],
         {},
@@ -242,7 +242,7 @@ packages = [
         {
             'aarch64': (['--enable-fix-cortex-a53-835769', '--enable-fix-cortex-a53-843419'], {}),
             'powerpc': (['--disable-multilib', '--disable-soft-float', '--with-float=hard'], {}),
-            'arm': (['--with-arch-directory=arm', '--with-arch=armv7-a', '--with-fpu=vfpv3-d16', '--with-float=hard', '--with-mode=thumb'], {}),
+            'arm': (['--with-arch-directory=arm', '--with-arch=armv7-a', '--with-fpu=vfpv3-d16', '--with-float=hard', '--with-mode=thumb', ], {}),
             'mipsel': (['--with-endian=little', '--with-arch-directory=mipsel', '--with-arch-32=mips2', '--with-tune-32=mips32r2', '--with-fp-32=xx',], {'CFLAGS_FOR_TARGET':'-O1 -g', 'CXXFLAGS_FOR_TARGET': '-O1 -g'}),
             'mips': (['--with-arch-directory=mips', '--with-arch-32=mips2', '--with-tune-32=mips32r2', '--with-fp-32=xx',], {'CFLAGS_FOR_TARGET':'-O1 -g', 'CXXFLAGS_FOR_TARGET': '-O1 -g'}),
         },
@@ -440,10 +440,10 @@ packages = [
         [],
         ['bash', '%(src_path)s/configure', '--build=%(host)s', '--target=%(target_arch)s-%(target_abi)s', '--prefix=%(install_path)s',
                  '--with-gmp=%(install_path)s', '--with-mpfr=%(install_path)s', '--with-mpc=%(install_path)s',
-                 '--with-python=%(install_path)s/', '--enable-targets=all'],
+                 '--with-python=%(install_path)s/', '--enable-targets=all', '--program-prefix='],
         {},
         ['make', '-j8'],
-        ['bash', '-c', 'make', 'install', '&&', 'make', 'install-strip-gdb'],
+        ['bash', '-c', 'make install && make install-strip-gdb'],
         ['make', 'clean'],
     ),
 ]
