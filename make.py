@@ -17,11 +17,11 @@ except ImportError:
 cols = 80
 
 target_paths = (
-    'pc-freebsd-i386',
-    'pc-freebsd-amd64',
-    'pc-freebsd-ppc',
-    'pc-freebsd-ppc64',
-    'pc-freebsd-aarch64',
+    #'pc-freebsd-i386',
+    #'pc-freebsd-amd64',
+    #'pc-freebsd-ppc',
+    #'pc-freebsd-ppc64',
+    #'pc-freebsd-aarch64',
     'pc-linux-gnu',
 )
 
@@ -160,7 +160,7 @@ packages = [
     (
         'gmp',
         [
-            ('http://ftp.gnu.org/gnu/gmp/gmp-6.1.1.tar.bz2', '', None),
+            ('http://ftp.gnu.org/gnu/gmp/gmp-6.1.2.tar.bz2', '', None),
         ],
         [],
         True,
@@ -174,7 +174,7 @@ packages = [
     (
         'mpfr',
         [
-            ('http://www.mpfr.org/mpfr-current/mpfr-3.1.4.tar.xz', '', None),
+            ('http://www.mpfr.org/mpfr-current/mpfr-3.1.5.tar.xz', '', None),
         ],
         [],
         True,
@@ -204,7 +204,7 @@ packages = [
     (
         'binutils',
         [
-            ('http://ftp.gnu.org/gnu/binutils/binutils-2.26.tar.bz2', '', None)
+            ('http://ftp.gnu.org/gnu/binutils/binutils-2.29.tar.bz2', '', None)
         ],
         [
             ('binutils-2.24.patch', 1),
@@ -223,7 +223,7 @@ packages = [
     (
         'gcc-4.9',
         [
-            ('ftp://ftp.fu-berlin.de/unix/languages/gcc/releases/gcc-4.9.3/gcc-4.9.3.tar.bz2', '', None)
+            ('ftp://ftp.fu-berlin.de/unix/languages/gcc/releases/gcc-4.9.4/gcc-4.9.4.tar.bz2', '', None)
         ],
         [
             ('gcc-4.9.2.patch', 2),
@@ -284,7 +284,7 @@ packages = [
     (
         'gcc-6',
         [
-            ('ftp://ftp.irisa.fr/pub/mirrors/gcc.gnu.org/gcc/releases/gcc-6.1.0/gcc-6.1.0.tar.bz2', '', None)
+            ('ftp://ftp.irisa.fr/pub/mirrors/gcc.gnu.org/gcc/releases/gcc-6.4.0/gcc-6.4.0.tar.bz2', '', None)
         ],
         [
             ('gcc-4.9.2.patch', 2),
