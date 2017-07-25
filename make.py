@@ -1,3 +1,5 @@
+GCC_MIRROR='ftp://ftp.mpi-sb.mpg.de/pub/gnu/mirror/gcc.gnu.org/pub/gcc'
+
 import os
 import subprocess
 import sys
@@ -223,7 +225,7 @@ packages = [
     (
         'gcc-4.9',
         [
-            ('ftp://ftp.fu-berlin.de/unix/languages/gcc/releases/gcc-4.9.4/gcc-4.9.4.tar.bz2', '', None)
+            ('%s/releases/gcc-4.9.4/gcc-4.9.4.tar.bz2' % GCC_MIRROR, '', None)
         ],
         [
             ('gcc-4.9.2.patch', 2),
@@ -253,7 +255,7 @@ packages = [
     (
         'gcc-5',
         [
-            ('ftp://ftp.irisa.fr/pub/mirrors/gcc.gnu.org/gcc/releases/gcc-5.4.0/gcc-5.4.0.tar.bz2', '', None)
+            ('%s/releases/gcc-5.4.0/gcc-5.4.0.tar.bz2' % GCC_MIRROR, '', None)
         ],
         [
             ('gcc-4.9.2.patch', 2),
@@ -284,7 +286,7 @@ packages = [
     (
         'gcc-6',
         [
-            ('ftp://ftp.irisa.fr/pub/mirrors/gcc.gnu.org/gcc/releases/gcc-6.4.0/gcc-6.4.0.tar.bz2', '', None)
+            ('%s/releases/gcc-6.4.0/gcc-6.4.0.tar.gz' % GCC_MIRROR, '', None)
         ],
         [
             ('gcc-4.9.2.patch', 2),
@@ -322,7 +324,8 @@ packages = [
         [
             ('llvm-3.4.patch', 1),
             ('clang-3.4-freebsd-crosscompile.diff', 1),
-            ('llvm-3.4-execute.diff', 1)
+            ('llvm-3.4-execute.diff', 1),
+            ('clang-3.4-include-path.diff', 1),
         ],
         True,
         [],
@@ -332,8 +335,8 @@ packages = [
                   '-DGCC_INSTALL_PREFIX=%(install_path)s/', '-DPYTHON_EXECUTABLE=%(install_path)s/bin/%(python)s',
                   '-DLLVM_INSTALL_TOOLCHAIN_ONLY=1',],
         {},
-        ['cmake', '--build', '.'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else []),
-        ['cmake', '--build', '.', '--target', 'install'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else []),
+        ['cmake', '--build', '.'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else ['--','-j', '16']),
+        ['cmake', '--build', '.', '--target', 'install'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else ['--', '-j', '16']),
         ['cmake', '--build', '.', '--target', 'clean'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else []),
     ),
     (
@@ -346,7 +349,8 @@ packages = [
         [
             ('llvm-3.5.patch', 1),
             ('clang-freebsd-crosscompile.diff', 1),
-            ('llvm-3.4-execute.diff', 1)
+            ('llvm-3.4-execute.diff', 1),
+            ('clang-3.5-include-path.diff', 1),
         ],
         True,
         [],
@@ -356,9 +360,9 @@ packages = [
                   '-DGCC_INSTALL_PREFIX=%(install_path)s/', '-DPYTHON_EXECUTABLE=%(install_path)s/bin/%(python)s',
                   '-DLLVM_INSTALL_TOOLCHAIN_ONLY=1',],
         {},
-        ['cmake', '--build', '.'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else []),
-        ['cmake', '--build', '.', '--target', 'install'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else []),
-        ['cmake', '--build', '.', '--target', 'clean'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else []),
+        ['cmake', '--build', '.'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else ['--', '-j', '16']),
+        ['cmake', '--build', '.', '--target', 'install'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else ['--', '-j', '16']),
+        ['cmake', '--build', '.', '--target', 'clean'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else ['--', '-j', '16']),
     ),
     (
         'clang-3.6',
@@ -370,7 +374,8 @@ packages = [
         [
             ('llvm-3.6.patch', 1),
             ('clang-freebsd-crosscompile.diff', 1),
-            ('llvm-3.6-execute.diff', 1)
+            ('llvm-3.6-execute.diff', 1),
+            ('clang-3.5-include-path.diff', 1),
         ],
         True,
         [],
@@ -380,9 +385,9 @@ packages = [
                   '-DGCC_INSTALL_PREFIX=%(install_path)s/', '-DPYTHON_EXECUTABLE=%(install_path)s/bin/%(python)s',
                   '-DLLVM_INSTALL_TOOLCHAIN_ONLY=1',],
         {},
-        ['cmake', '--build', '.'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else []),
-        ['cmake', '--build', '.', '--target', 'install'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else []),
-        ['cmake', '--build', '.', '--target', 'clean'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else []),
+        ['cmake', '--build', '.'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else ['--', '-j', '16']),
+        ['cmake', '--build', '.', '--target', 'install'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else ['--', '-j', '16']),
+        ['cmake', '--build', '.', '--target', 'clean'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else ['--', '-j', '16']),
     ),
     (
         'clang-3.7',
@@ -394,7 +399,8 @@ packages = [
         [
             ('llvm-3.7.patch', 1),
             ('clang-freebsd-crosscompile.diff', 1),
-            ('llvm-3.6-execute.diff', 1)
+            ('llvm-3.6-execute.diff', 1),
+            ('clang-3.7-include-path.diff', 1),
         ],
         True,
         [],
@@ -404,19 +410,20 @@ packages = [
                   '-DGCC_INSTALL_PREFIX=%(install_path)s/', '-DPYTHON_EXECUTABLE=%(install_path)s/bin/%(python)s',
                   '-DLLVM_INSTALL_TOOLCHAIN_ONLY=1',],
         {},
-        ['cmake', '--build', '.'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else []),
-        ['cmake', '--build', '.', '--target', 'install'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else []),
-        ['cmake', '--build', '.', '--target', 'clean'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else []),
+        ['cmake', '--build', '.'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else ['--', '-j', '16']),
+        ['cmake', '--build', '.', '--target', 'install'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else ['--', '-j', '16']),
+        ['cmake', '--build', '.', '--target', 'clean'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else ['--', '-j', '16']),
     ),
     (
         'clang-3.8',
         [
-            ('http://llvm.org/releases/3.8.0/llvm-3.8.0.src.tar.xz', '', None),
-            ('http://llvm.org/releases/3.8.0/cfe-3.8.0.src.tar.xz', 'llvm-3.8.0.src/tools', 'clang'),
-            ('http://llvm.org/releases/3.8.0/compiler-rt-3.8.0.src.tar.xz', 'llvm-3.8.0.src/projects', 'compiler-rt'),
+            ('http://llvm.org/releases/3.8.1/llvm-3.8.1.src.tar.xz', '', None),
+            ('http://llvm.org/releases/3.8.1/cfe-3.8.1.src.tar.xz', 'llvm-3.8.1.src/tools', 'clang'),
+            ('http://llvm.org/releases/3.8.1/compiler-rt-3.8.1.src.tar.xz', 'llvm-3.8.1.src/projects', 'compiler-rt'),
         ],
         [
-            ('llvm-3.8.patch', 1)
+            ('llvm-3.8.patch', 1),
+            ('clang-3.7-include-path.diff', 1),
         ],
         True,
         [],
@@ -426,9 +433,58 @@ packages = [
                   '-DGCC_INSTALL_PREFIX=%(install_path)s/', '-DPYTHON_EXECUTABLE=%(install_path)s/bin/%(python)s',
                   '-DLLVM_INSTALL_TOOLCHAIN_ONLY=1',],
         {},
-        ['cmake', '--build', '.'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else []),
-        ['cmake', '--build', '.', '--target', 'install'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else []),
-        ['cmake', '--build', '.', '--target', 'clean'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else []),
+        ['cmake', '--build', '.'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else ['--', '-j', '16']),
+        ['cmake', '--build', '.', '--target', 'install'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else ['--', '-j', '16']),
+        #['cmake', '--build', '.', '--target', 'clean'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else ['--', '-j', '16']),
+        []
+    ),
+    (
+        'clang-3.9',
+        [
+            ('http://llvm.org/releases/3.9.1/llvm-3.9.1.src.tar.xz', '', None),
+            ('http://llvm.org/releases/3.9.1/cfe-3.9.1.src.tar.xz', 'llvm-3.9.1.src/tools', 'clang'),
+            ('http://llvm.org/releases/3.9.1/compiler-rt-3.9.1.src.tar.xz', 'llvm-3.9.1.src/projects', 'compiler-rt'),
+        ],
+        [
+            #('llvm-3.8.patch', 1),
+            #('clang-3.5-include-path.diff', 1),
+        ],
+        True,
+        [],
+        ['cmake', '%(src_path)s', '-G', '%(build_2013)s', '-DCMAKE_INSTALL_PREFIX=%(install_path)s/lib/llvm-3.9/',
+                  '-DCMAKE_BUILD_TYPE=Release', '-DBUILD_SHARED_LIBS=0', '-DDEFAULT_SYSROOT=%(sysroot_path)s',
+                  '-DLLVM_DEFAULT_TARGET_TRIPLE=%(target_arch)s-%(target_abi)s', '-DLLVM_TARGET_ARCH=%(target_arch)s',
+                  '-DGCC_INSTALL_PREFIX=%(install_path)s/', '-DPYTHON_EXECUTABLE=%(install_path)s/bin/%(python)s',
+                  '-DLLVM_INSTALL_TOOLCHAIN_ONLY=1',],
+        {},
+        ['cmake', '--build', '.'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else ['--', '-j', '16']),
+        ['cmake', '--build', '.', '--target', 'install'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else ['--', '-j', '16']),
+        #['cmake', '--build', '.', '--target', 'clean'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else ['--', '-j', '16']),
+        []
+    ),
+    (
+        'clang-4.0',
+        [
+            ('http://llvm.org/releases/4.0.1/llvm-4.0.1.src.tar.xz', '', None),
+            ('http://llvm.org/releases/4.0.1/cfe-4.0.1.src.tar.xz', 'llvm-4.0.1.src/tools', 'clang'),
+            ('http://llvm.org/releases/4.0.1/compiler-rt-4.0.1.src.tar.xz', 'llvm-4.0.1.src/projects', 'compiler-rt'),
+        ],
+        [
+            #('llvm-3.8.patch', 1),
+            #('clang-3.5-include-path.diff', 1),
+        ],
+        True,
+        [],
+        ['cmake', '%(src_path)s', '-G', '%(build_2013)s', '-DCMAKE_INSTALL_PREFIX=%(install_path)s/lib/llvm-4.0/',
+                  '-DCMAKE_BUILD_TYPE=Release', '-DBUILD_SHARED_LIBS=0', '-DDEFAULT_SYSROOT=%(sysroot_path)s',
+                  '-DLLVM_DEFAULT_TARGET_TRIPLE=%(target_arch)s-%(target_abi)s', '-DLLVM_TARGET_ARCH=%(target_arch)s',
+                  '-DGCC_INSTALL_PREFIX=%(install_path)s/', '-DPYTHON_EXECUTABLE=%(install_path)s/bin/%(python)s',
+                  '-DLLVM_INSTALL_TOOLCHAIN_ONLY=1',],
+        {},
+        ['cmake', '--build', '.'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else ['--', '-j', '16']),
+        ['cmake', '--build', '.', '--target', 'install'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else ['--', '-j', '16']),
+        #['cmake', '--build', '.', '--target', 'clean'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else ['--', '-j', '16']),
+        []
     ),
     (
         'gdb',

@@ -1,0 +1,39 @@
+--- clang-3.4/tools/clang/lib/Driver/ToolChains.cpp	2017-07-24 21:40:11.299228026 +0200
++++ clang-3.4.src/tools/clang/lib/Driver/ToolChains.cpp	2017-07-24 21:35:47.515434661 +0200
+@@ -2785,10 +2785,9 @@
+   StringRef BiarchSuffix = GCCInstallation.getBiarchSuffix();
+   const GCCVersion &Version = GCCInstallation.getVersion();
+ 
+-  if (addLibStdCXXIncludePaths(LibDir.str() + "/../include",
+-                               "/c++/" + Version.Text, TripleStr, BiarchSuffix,
+-                               MIPSABIDirSuffix, DriverArgs, CC1Args))
+-    return;
++  addLibStdCXXIncludePaths(LibDir.str() + "/../include",
++                           "/c++/" + Version.Text, TripleStr, BiarchSuffix,
++                           MIPSABIDirSuffix, DriverArgs, CC1Args);
+ 
+   const std::string IncludePathCandidates[] = {
+     // Gentoo is weird and places its headers inside the GCC install, so if the
+@@ -2809,6 +2808,22 @@
+                                  DriverArgs, CC1Args))
+       break;
+   }
++  std::string SysRoot = computeSysRoot();
++  if (!SysRoot.empty())
++  {
++    const std::string IncludePathCandidates[] = {
++      SysRoot + "/usr/" + TripleStr.str() + "/include/c++/" + Version.Text,
++      SysRoot + "/usr/include" + TripleStr.str() + "//c++/" + Version.Text,
++      SysRoot + "/usr/include/c++",
++    };
++
++    for (unsigned i = 0; i < llvm::array_lengthof(IncludePathCandidates); ++i) {
++      if (addLibStdCXXIncludePaths(IncludePathCandidates[i],
++                                   TripleStr + MIPSABIDirSuffix + BiarchSuffix,
++                                   DriverArgs, CC1Args))
++        break;
++    }
++  }
+ }
+ 
+ bool Linux::isPIEDefault() const {

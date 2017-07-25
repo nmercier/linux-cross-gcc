@@ -1,0 +1,32 @@
+--- clang-3.7.orig/tools/clang/lib/Driver/ToolChains.cpp	2017-07-25 08:25:58.928881813 +0200
++++ clang-3.7/tools/clang/lib/Driver/ToolChains.cpp	2017-07-25 21:30:00.386352091 +0200
+@@ -3585,14 +3585,14 @@
+   const GCCVersion &Version = GCCInstallation.getVersion();
+ 
+   // The primary search for libstdc++ supports multiarch variants.
+-  if (addLibStdCXXIncludePaths(LibDir.str() + "/../include",
+-                               "/c++/" + Version.Text, TripleStr,
+-                               GCCMultiarchTriple, TargetMultiarchTriple,
+-                               Multilib.includeSuffix(), DriverArgs, CC1Args))
+-    return;
++  addLibStdCXXIncludePaths(LibDir.str() + "/../include",
++                           "/c++/" + Version.Text, TripleStr,
++                           GCCMultiarchTriple, TargetMultiarchTriple,
++                           Multilib.includeSuffix(), DriverArgs, CC1Args);
+ 
+   // Otherwise, fall back on a bunch of options which don't use multiarch
+   // layouts for simplicity.
++  std::string SysRoot = computeSysRoot();
+   const std::string LibStdCXXIncludePathCandidates[] = {
+       // Gentoo is weird and places its headers inside the GCC install,
+       // so if the first attempt to find the headers fails, try these patterns.
+@@ -3604,6 +3604,9 @@
+       // Freescale SDK C++ headers are directly in <sysroot>/usr/include/c++,
+       // without a subdirectory corresponding to the gcc version.
+       LibDir.str() + "/../include/c++",
++      SysRoot + "/usr/" + TripleStr.str() + "/include/c++/" + Version.Text,
++      SysRoot + "/usr/include" + TripleStr.str() + "/c++/" + Version.Text,
++      SysRoot + "/usr/include/c++"
+   };
+ 
+   for (const auto &IncludePath : LibStdCXXIncludePathCandidates) {
