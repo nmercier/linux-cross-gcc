@@ -23,8 +23,8 @@ target_paths = (
     #'pc-freebsd-amd64',
     #'pc-freebsd-ppc',
     #'pc-freebsd-ppc64',
-    #'pc-freebsd-aarch64',
-    'pc-linux-gnu',
+    'pc-freebsd-aarch64',
+    #'pc-linux-gnu',
 )
 
 platform_flags = {
@@ -63,7 +63,9 @@ def get_arch(file):
         'ARM':                              ('arm', 'armel'),
         'MIPS R3000':                       ('mips', 'mipsel'),
     }
-    p = subprocess.Popen(['readelf', '-h', file], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    env = os.environ.copy()
+    env['LC_ALL'] = 'C'
+    p = subprocess.Popen(['readelf', '-h', file], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env)
     out, err = p.communicate()
     if not isinstance(out, str):
         out = out.decode(sys.stdout.encoding, errors='ignore')
@@ -326,6 +328,7 @@ packages = [
             ('clang-3.4-freebsd-crosscompile.diff', 1),
             ('llvm-3.4-execute.diff', 1),
             ('clang-3.4-include-path.diff', 1),
+            ('clang-3.4-lib-path.diff', 1),
         ],
         True,
         [],
@@ -351,6 +354,7 @@ packages = [
             ('clang-freebsd-crosscompile.diff', 1),
             ('llvm-3.4-execute.diff', 1),
             ('clang-3.5-include-path.diff', 1),
+            ('clang-3.4-lib-path.diff', 1),
         ],
         True,
         [],
@@ -376,6 +380,7 @@ packages = [
             ('clang-freebsd-crosscompile.diff', 1),
             ('llvm-3.6-execute.diff', 1),
             ('clang-3.5-include-path.diff', 1),
+            ('clang-3.4-lib-path.diff', 1),
         ],
         True,
         [],
@@ -401,6 +406,7 @@ packages = [
             ('clang-freebsd-crosscompile.diff', 1),
             ('llvm-3.6-execute.diff', 1),
             ('clang-3.7-include-path.diff', 1),
+            ('clang-3.4-lib-path.diff', 1),
         ],
         True,
         [],
@@ -424,6 +430,7 @@ packages = [
         [
             ('llvm-3.8.patch', 1),
             ('clang-3.7-include-path.diff', 1),
+            ('clang-3.8-lib-path.diff', 1),
         ],
         True,
         [],
@@ -435,8 +442,7 @@ packages = [
         {},
         ['cmake', '--build', '.'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else ['--', '-j', '16']),
         ['cmake', '--build', '.', '--target', 'install'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else ['--', '-j', '16']),
-        #['cmake', '--build', '.', '--target', 'clean'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else ['--', '-j', '16']),
-        []
+        ['cmake', '--build', '.', '--target', 'clean'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else ['--', '-j', '16']),
     ),
     (
         'clang-3.9',
@@ -448,6 +454,7 @@ packages = [
         [
             ('llvm-3.9.patch', 1),
             ('clang-3.7-include-path.diff', 1),
+            ('clang-3.8-lib-path.diff', 1),
         ],
         True,
         [],
@@ -459,8 +466,7 @@ packages = [
         {},
         ['cmake', '--build', '.'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else ['--', '-j', '16']),
         ['cmake', '--build', '.', '--target', 'install'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else ['--', '-j', '16']),
-        #['cmake', '--build', '.', '--target', 'clean'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else ['--', '-j', '16']),
-        []
+        ['cmake', '--build', '.', '--target', 'clean'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else ['--', '-j', '16']),
     ),
     (
         'clang-4.0',
@@ -470,8 +476,9 @@ packages = [
             ('http://llvm.org/releases/4.0.1/compiler-rt-4.0.1.src.tar.xz', 'llvm-4.0.1.src/projects', 'compiler-rt'),
         ],
         [
-            #('llvm-3.8.patch', 1),
-            #('clang-3.5-include-path.diff', 1),
+            ('llvm-4.0.patch', 1),
+            ('clang-3.7-include-path.diff', 1),
+            ('clang-3.8-lib-path.diff', 1),
         ],
         True,
         [],
@@ -483,8 +490,7 @@ packages = [
         {},
         ['cmake', '--build', '.'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else ['--', '-j', '16']),
         ['cmake', '--build', '.', '--target', 'install'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else ['--', '-j', '16']),
-        #['cmake', '--build', '.', '--target', 'clean'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else ['--', '-j', '16']),
-        []
+        ['cmake', '--build', '.', '--target', 'clean'] + (['--', '/p:Configuration=Release'] if sys.platform == 'win32' else ['--', '-j', '16']),
     ),
     (
         'gdb',

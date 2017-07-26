@@ -1,0 +1,14 @@
+diff -u -r clang-3.4.orig/tools/clang/lib/Driver/ToolChains.cpp clang-3.4/tools/clang/lib/Driver/ToolChains.cpp
+--- clang-3.4.orig/tools/clang/lib/Driver/ToolChains.cpp	2017-07-26 17:24:14.594982394 +0200
++++ clang-3.4/tools/clang/lib/Driver/ToolChains.cpp	2017-07-26 18:00:49.443710080 +0200
+@@ -2522,6 +2522,10 @@
+   addPathIfExists(SysRoot + "/usr/lib/" + MultiarchTriple, Paths);
+   addPathIfExists(SysRoot + "/usr/lib/../" + Multilib, Paths);
+ 
++  const GCCVersion &Version = GCCInstallation.getVersion();
++  addPathIfExists(SysRoot + "/usr/lib/gcc/" + MultiarchTriple + "/" + Version.Text, Paths);
++  addPathIfExists(SysRoot + "/usr/lib/gcc-cross/" + MultiarchTriple + "/" + Version.Text, Paths);
++
+   // Try walking via the GCC triple path in case of biarch or multiarch GCC
+   // installations with strange symlinks.
+   if (GCCInstallation.isValid()) {
