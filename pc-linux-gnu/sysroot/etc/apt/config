@@ -8,10 +8,10 @@ MIRRORS = (
         'arm64',
         'mips',
         'mipsel',
-    ), 'http://ftp.se.debian.org/debian/', ['stable', 'testing', 'unstable'], ('main', 'contrib', 'non-free')),
+    ), 'http://ftp.se.debian.org/debian/', ['oldstable', 'stable', 'testing', 'unstable'], ('main', 'contrib', 'non-free')),
     ((
         'powerpc',
-    ), 'http://ftp.se.debian.org/debian/', ['unstable'], ('main', 'contrib', 'non-free')),
+    ), 'http://ftp.se.debian.org/debian/', ['oldstable', 'unstable'], ('main', 'contrib', 'non-free')),
     ((
         'ppc64',
     ), 'http://ftp.debian-ports.org/debian/', ['unstable'], ('main',)),

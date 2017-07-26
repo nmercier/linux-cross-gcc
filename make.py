@@ -446,8 +446,8 @@ packages = [
             ('http://llvm.org/releases/3.9.1/compiler-rt-3.9.1.src.tar.xz', 'llvm-3.9.1.src/projects', 'compiler-rt'),
         ],
         [
-            #('llvm-3.8.patch', 1),
-            #('clang-3.5-include-path.diff', 1),
+            ('llvm-3.9.patch', 1),
+            ('clang-3.7-include-path.diff', 1),
         ],
         True,
         [],

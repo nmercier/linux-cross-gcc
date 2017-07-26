@@ -1,7 +1,1 @@
-p=`/bin/dirname $0`
-p=`/bin/dirname $p`
-
-PATH=$PATH:$p/bin
-for i in `ls -d $p/lib/llvm-*`; do
-    PATH=$PATH:$i/bin
-done
+PATH=$PATH:$1/bin

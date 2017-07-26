@@ -1,3 +1,4 @@
 ARCHITECTURE=('arm64', 'aarch64', False)
 MIRROR='http://ftp.freebsd.org/pub/FreeBSD/releases/'
-DIST='11.0-BETA1'
+PKG_MIRROR='http://pkg.freebsd.org/FreeBSD:11:aarch64/release_1/'
+DIST='11.1-RELEASE'
