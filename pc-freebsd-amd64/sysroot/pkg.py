@@ -266,6 +266,8 @@ def do_install(database, package_list):
                         if member.linkname[0] == '/':
                             member.linkname = os.path.relpath('.', os.path.split(member.name)[0]) + member.linkname
                             print(member.name, '  ->  ', member.linkname)
+                        try: os.makedirs(os.path.split(member.name)[0])
+                        except OSError: pass
                         try:
                             os.symlink(member.linkname, member.name)
                         except OSError:
@@ -475,7 +477,11 @@ def update():
     packages = {}
     shlibs = {}
     base_url = config['PKG_MIRROR'] + '/packagesite.txz'
-    data = download(base_url)
+    try:
+        data = download(base_url)
+    except Exception as e:
+        print('could not download %s:\n %s' % (base_url, e))
+        return
     tar = tarfile.open(fileobj=io.BytesIO(data))
     for line in  tar.extractfile(tar.getmember('packagesite.yaml')):
         try:

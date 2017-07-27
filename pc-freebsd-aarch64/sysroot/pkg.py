@@ -266,6 +266,8 @@ def do_install(database, package_list):
                         if member.linkname[0] == '/':
                             member.linkname = os.path.relpath('.', os.path.split(member.name)[0]) + member.linkname
                             print(member.name, '  ->  ', member.linkname)
+                        try: os.makedirs(os.path.split(member.name)[0])
+                        except OSError: pass
                         try:
                             os.symlink(member.linkname, member.name)
                         except OSError:
