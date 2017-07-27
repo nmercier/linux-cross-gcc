@@ -19,11 +19,11 @@ except ImportError:
 cols = 80
 
 target_paths = (
-    #'pc-freebsd-i386',
+    'pc-freebsd-i386',
     #'pc-freebsd-amd64',
     #'pc-freebsd-ppc',
     #'pc-freebsd-ppc64',
-    'pc-freebsd-aarch64',
+    #'pc-freebsd-aarch64',
     #'pc-linux-gnu',
 )
 
@@ -130,6 +130,7 @@ def get_gcc_host():
             line = line.decode(sys.stdout.encoding, errors='ignore')
         if line.startswith('Target'):
             target = line.strip().split()[1]
+    print('Building for host %s' % target)
     return target
 
 
@@ -495,7 +496,7 @@ packages = [
     (
         'gdb',
         [
-            ('http://ftp.gnu.org/gnu/gdb/gdb-7.11.tar.xz', '', None)
+            ('http://ftp.gnu.org/gnu/gdb/gdb-8.0.tar.xz', '', None)
         ],
         [],
         True,
